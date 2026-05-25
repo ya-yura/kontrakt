@@ -4,6 +4,14 @@ This repository is one cohesive product. Do not split routine daily work into
 extra branches, duplicated files, or parallel implementations unless the user
 explicitly asks for that workflow.
 
+## Main Rule For Services
+
+- Before starting any server, read `.agent-state/runtime-status.json`.
+- If the needed service is already `running` and its URL responds, use that
+  service.
+- Do not start a second server on a new port without a concrete reason.
+- After starting or stopping a service, update `.agent-state/runtime-status.json`.
+
 ## Product Line And Git
 
 - Default to the current `main` product line for ordinary sprint work.
