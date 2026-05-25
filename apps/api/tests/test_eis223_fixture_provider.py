@@ -23,12 +23,12 @@ def test_fixture_provider_returns_predictable_tender_hits() -> None:
 def test_fixture_provider_applies_saved_filter_fields() -> None:
     provider = FixtureEIS223Provider()
     request = SavedFilterExecutionRequest(
-        query="оборудования",
-        regions=["Пермский край"],
-        okpd2_codes=["33.13.12.000"],
+        search_query="оборудования",
+        region_codes=["Пермский край"],
+        okpd2_prefixes=["33.13.12.000"],
         source_stages=["COMMISSION_REVIEW"],
-        min_initial_price=Decimal("4000000"),
-        max_initial_price=Decimal("5000000"),
+        min_price=Decimal("4000000"),
+        max_price=Decimal("5000000"),
     )
 
     hits = provider.execute_saved_filter(request)

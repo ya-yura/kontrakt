@@ -1,10 +1,12 @@
 import json
 from collections.abc import Mapping
+from datetime import date, timedelta
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+from app.providers.eis223.protocol import EIS223SearchResult
 from app.providers.eis223.normalization import normalize_eis223_tender
 from app.providers.errors import (
     InvalidProviderResponseError,
@@ -27,8 +29,14 @@ class LiveEIS223Provider:
         self,
         request: SavedFilterExecutionRequest,
     ) -> list[NormalizedTenderHit]:
+        return self.search(request).hits
+
+    def search(
+        self,
+        request: SavedFilterExecutionRequest,
+    ) -> EIS223SearchResult:
         url = urljoin(self._base_url, "tenders/search")
-        body = json.dumps(request.model_dump(mode="json")).encode("utf-8")
+        body = json.dumps(_upstream_search_query(request)).encode("utf-8")
         upstream_request = Request(
             url,
             data=body,
@@ -62,7 +70,70 @@ class LiveEIS223Provider:
             if not isinstance(item, Mapping):
                 raise InvalidProviderResponseError("Provider response item must be an object.")
             normalized.append(normalize_eis223_tender(item))
-        return normalized
+
+        return EIS223SearchResult(
+            hits=normalized,
+            next_cursor=_optional_string(payload.get("nextCursor")),
+            source_freshness=_live_source_freshness(payload),
+        )
+
+
+def _upstream_search_query(request: SavedFilterExecutionRequest) -> dict[str, Any]:
+    query: dict[str, Any] = {
+        "limit": request.limit,
+    }
+    _put_if_present(query, "filterId", request.filter_id)
+    _put_if_present(query, "searchQuery", request.search_query)
+    _put_if_present(query, "includeKeywords", request.include_keywords)
+    _put_if_present(query, "excludeKeywords", request.exclude_keywords)
+    _put_if_present(query, "okpd2Prefixes", request.okpd2_prefixes)
+    _put_if_present(query, "regionCodes", request.region_codes)
+    _put_if_present(query, "methodAllowList", request.method_allow_list)
+    _put_if_present(query, "customerInnAllowList", request.customer_inn_allow_list)
+    _put_if_present(query, "customerInnBlockList", request.customer_inn_block_list)
+    _put_if_present(query, "minPrice", _decimal_string(request.min_price))
+    _put_if_present(query, "maxPrice", _decimal_string(request.max_price))
+    _put_if_present(query, "cursor", request.cursor)
+
+    if request.days_ahead is not None:
+        today = date.today()
+        query["applicationDeadlineFrom"] = today.isoformat()
+        query["applicationDeadlineTo"] = (today + timedelta(days=request.days_ahead)).isoformat()
+
+    return query
+
+
+def _put_if_present(query: dict[str, Any], key: str, value: object) -> None:
+    if value is None:
+        return
+    if isinstance(value, list) and not value:
+        return
+    query[key] = value
+
+
+def _decimal_string(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _live_source_freshness(payload: Mapping[str, Any]) -> dict[str, str]:
+    response_meta = payload.get("responseMeta")
+    if isinstance(response_meta, Mapping):
+        generated_at = _optional_string(response_meta.get("generatedAt"))
+        source = _optional_string(response_meta.get("source"))
+    else:
+        generated_at = None
+        source = None
+
+    freshness = {
+        "mode": "live",
+        "source": source or "configured_upstream",
+        "note": "Freshness is reported by the configured upstream when available; no real-time guarantee.",
+    }
+    if generated_at is not None:
+        freshness["generatedAt"] = generated_at
+    return freshness
 
 
 def _json_object(response_body: bytes) -> Mapping[str, Any]:
@@ -74,3 +145,10 @@ def _json_object(response_body: bytes) -> Mapping[str, Any]:
     if not isinstance(payload, Mapping):
         raise InvalidProviderResponseError("Provider response must be a JSON object.")
     return payload
+
+
+def _optional_string(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None

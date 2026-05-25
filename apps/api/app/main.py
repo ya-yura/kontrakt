@@ -4,7 +4,9 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.providers.eis223.factory import build_eis223_provider
 from app.providers.errors import ProviderError
+from app.schemas import EIS223SearchResponse, SavedFilterExecutionRequest
 from app.settings import ProviderMode, get_settings
 
 
@@ -31,7 +33,7 @@ app = FastAPI(
 async def provider_error_handler(_: object, exc: ProviderError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
-        content=exc.to_response().model_dump(),
+        content=exc.to_response().model_dump(mode="json", by_alias=True),
     )
 
 
@@ -43,4 +45,17 @@ def healthz() -> HealthResponse:
             mode=settings.eis_provider_mode,
             configured=settings.is_provider_configured,
         ),
+    )
+
+
+@app.post("/v1/eis223/search", response_model=EIS223SearchResponse, tags=["eis223"])
+def search_eis223(request: SavedFilterExecutionRequest) -> EIS223SearchResponse:
+    settings = get_settings()
+    provider = build_eis223_provider(settings)
+    result = provider.search(request)
+    return EIS223SearchResponse(
+        hits=result.hits,
+        next_cursor=result.next_cursor,
+        provider_mode=provider.mode,
+        source_freshness=result.source_freshness,
     )
