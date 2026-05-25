@@ -1,0 +1,29 @@
+[project]
+name = "operational-workspace-api"
+version = "0.1.0"
+description = "Stateless FastAPI service for the 223-FZ Operational Workspace MVP"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi>=0.116,<1.0",
+  "uvicorn[standard]>=0.35,<1.0"
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<1.0",
+  "mypy>=1.17,<2.0",
+  "pytest>=8.4,<9.0",
+  "ruff>=0.12,<1.0"
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+

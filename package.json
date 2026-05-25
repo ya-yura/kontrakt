@@ -1,0 +1,20 @@
+{
+  "name": "operational-workspace-223fz",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.12.1",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd apps/api && uv sync",
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:api": "cd apps/api && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "docker:up": "docker compose up -d postgres",
+    "docker:down": "docker compose down",
+    "build": "npm run build -w apps/web",
+    "typecheck": "npm run typecheck -w apps/web && cd apps/api && uv run mypy app tests",
+    "test": "npm run test -w apps/web && cd apps/api && uv run pytest"
+  }
+}

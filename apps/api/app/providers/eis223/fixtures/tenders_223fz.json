@@ -1,0 +1,115 @@
+{
+  "responseMeta": {
+    "source": "eis223_fixture",
+    "generatedAt": "2026-05-25T00:00:00+03:00",
+    "note": "Local predictable fixture, not a live EIS integration."
+  },
+  "items": [
+    {
+      "purchase": {
+        "purchaseNumber": "32413500001",
+        "purchaseName": "Поставка медицинских расходных материалов для стоматологической клиники",
+        "purchaseStage": "APPLICATION_SUBMISSION",
+        "publicationDate": "2026-05-20",
+        "submissionCloseDateTime": "2026-06-03T10:00:00+03:00",
+        "href": "https://zakupki.gov.ru/epz/order/notice/notice223/common-info.html?regNumber=32413500001",
+        "placingWay": {
+          "code": "12010",
+          "name": "Запрос котировок в электронной форме"
+        },
+        "customer": {
+          "fullName": "АО \"Городская стоматология\"",
+          "inn": "7701234567",
+          "kpp": "770101001",
+          "regionName": "Москва"
+        },
+        "lots": [
+          {
+            "lotNumber": 1,
+            "subject": "Расходные материалы и инструменты для терапевтической стоматологии",
+            "initialMaxPrice": "1850000.00",
+            "currency": "RUB",
+            "okpd2": [
+              {
+                "code": "32.50.11.000",
+                "name": "Инструменты и приспособления стоматологические"
+              },
+              {
+                "code": "21.20.24.160",
+                "name": "Материалы стоматологические"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "purchase": {
+        "purchaseNumber": "32413500002",
+        "purchaseName": "Оказание услуг по техническому обслуживанию медицинского оборудования",
+        "purchaseStage": "COMMISSION_REVIEW",
+        "publicationDate": "2026-05-18",
+        "submissionCloseDateTime": "2026-05-30T16:00:00+03:00",
+        "href": "https://zakupki.gov.ru/epz/order/notice/notice223/common-info.html?regNumber=32413500002",
+        "placingWay": {
+          "code": "12030",
+          "name": "Аукцион в электронной форме"
+        },
+        "customer": {
+          "fullName": "ГАУЗ \"Областной клинический центр\"",
+          "inn": "5902001122",
+          "kpp": "590201001",
+          "regionName": "Пермский край"
+        },
+        "lots": [
+          {
+            "lotNumber": 1,
+            "subject": "Сервисное обслуживание рентгенологического и стерилизационного оборудования",
+            "initialMaxPrice": "4200000.00",
+            "currency": "RUB",
+            "okpd2": [
+              {
+                "code": "33.13.12.000",
+                "name": "Услуги по ремонту и техническому обслуживанию медицинского оборудования"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "purchase": {
+        "purchaseNumber": "32413500003",
+        "purchaseName": "Поставка программного обеспечения для управления складскими остатками",
+        "purchaseStage": "PUBLISHED",
+        "publicationDate": "2026-05-22",
+        "submissionCloseDateTime": "2026-06-07T12:00:00+03:00",
+        "href": "https://zakupki.gov.ru/epz/order/notice/notice223/common-info.html?regNumber=32413500003",
+        "placingWay": {
+          "code": "12020",
+          "name": "Конкурс в электронной форме"
+        },
+        "customer": {
+          "fullName": "АО \"Северная инфраструктура\"",
+          "inn": "7804003344",
+          "kpp": "780401001",
+          "regionName": "Санкт-Петербург"
+        },
+        "lots": [
+          {
+            "lotNumber": 1,
+            "subject": "Лицензии и внедрение системы учета складских остатков",
+            "initialMaxPrice": "2750000.00",
+            "currency": "RUB",
+            "okpd2": [
+              {
+                "code": "58.29.50.000",
+                "name": "Услуги по предоставлению лицензий на право использовать программное обеспечение"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+enum SavedFilterScope {
+  PRIVATE
+  TEAM
+}
+
+enum TenderSourceSystem {
+  EIS
+  MANUAL
+  OTHER
+}
+
+enum TenderSourceStage {
+  UNKNOWN
+  DRAFT
+  PUBLISHED
+  APPLICATIONS_OPEN
+  APPLICATIONS_REVIEW
+  RESULTS_PUBLISHED
+  CONTRACTING
+  COMPLETED
+  CANCELLED
+}
+
+enum TenderPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TenderDecision {
+  UNDECIDED
+  REVIEW
+  BID
+  NO_BID
+}
+
+enum DocumentType {
+  NOTICE
+  PROCUREMENT_DOCUMENTATION
+  TECHNICAL_SPECIFICATION
+  DRAFT_CONTRACT
+  CLARIFICATION
+  PROTOCOL
+  OTHER
+}
+
+enum DocumentStatus {
+  AVAILABLE
+  EXTERNAL_ONLY
+  MISSING
+}
+
+enum AIAnalysisStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum AlertChannel {
+  EMAIL
+  TELEGRAM
+  IN_APP
+}
+
+enum AlertDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole        @default(MANAGER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  savedFilters  SavedFilter[]
+  ownedTenders  Tender[]        @relation("TenderOwner")
+  documents     Document[]      @relation("DocumentUploader")
+  aiAnalyses    AIAnalysis[]    @relation("AIAnalysisRequester")
+  alerts        AlertDelivery[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model SavedFilter {
+  id        String           @id @default(cuid())
+  userId    String
+  name      String
+  scope     SavedFilterScope @default(PRIVATE)
+  query     Json
+  isDefault Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model KanbanStage {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  position    Int
+  isDefault   Boolean  @default(false)
+  isTerminal  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenders     Tender[]
+
+  @@index([position])
+}
+
+model Tender {
+  id                        String             @id @default(cuid())
+  sourceSystem              TenderSourceSystem @default(MANUAL)
+  externalId                String
+  registryNumber            String?
+  lotNumber                 String?
+  title                     String
+  description               String?            @db.Text
+  customerInn               String?
+  customerName              String?
+  purchaseMethod            String?
+  initialPrice              Decimal?           @db.Decimal(18, 2)
+  currency                  String             @default("RUB")
+  region                    String?
+  sourceUrl                 String?
+  publishedAt               DateTime?
+  applicationStartAt        DateTime?
+  submissionDeadline        DateTime?
+  clarificationDeadlineAt   DateTime?
+  resultAt                  DateTime?
+  bidSecurityAmount         Decimal?           @db.Decimal(18, 2)
+  contractSecurityAmount    Decimal?           @db.Decimal(18, 2)
+  paymentTerms              String?            @db.Text
+  participationRequirements Json?
+  requiredDocuments         Json?
+  evaluationCriteria        Json?
+  changesFeed               Json?
+  sourceStage               TenderSourceStage  @default(UNKNOWN)
+  priority                  TenderPriority     @default(NORMAL)
+  decision                  TenderDecision     @default(UNDECIDED)
+  kanbanStageId             String
+  ownerId                   String?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  kanbanStage               KanbanStage        @relation(fields: [kanbanStageId], references: [id], onDelete: Restrict)
+  owner                     User?              @relation("TenderOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  documents                 Document[]
+  aiAnalyses                AIAnalysis[]
+  alertDeliveries           AlertDelivery[]
+
+  @@unique([sourceSystem, externalId])
+  @@index([kanbanStageId])
+  @@index([ownerId])
+  @@index([sourceStage])
+  @@index([decision])
+  @@index([submissionDeadline])
+}
+
+model Document {
+  id           String         @id @default(cuid())
+  tenderId     String
+  type         DocumentType   @default(OTHER)
+  title        String
+  fileName     String?
+  status       DocumentStatus @default(AVAILABLE)
+  sourceUrl    String?
+  storageKey   String?
+  checksum     String?
+  uploadedById String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tender       Tender         @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  uploadedBy   User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([tenderId])
+  @@index([uploadedById])
+}
+
+model AIAnalysis {
+  id            String           @id @default(cuid())
+  tenderId      String
+  requestedById String?
+  status        AIAnalysisStatus @default(PENDING)
+  provider      String?
+  model         String?
+  summary       String?          @db.Text
+  score         Int?
+  result        Json?
+  error         String?          @db.Text
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  tender        Tender           @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  requestedBy   User?            @relation("AIAnalysisRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([tenderId])
+  @@index([requestedById])
+  @@index([status])
+}
+
+model AlertDelivery {
+  id           String              @id @default(cuid())
+  userId       String
+  tenderId     String?
+  channel      AlertChannel
+  status       AlertDeliveryStatus @default(PENDING)
+  dedupeKey    String
+  subject      String?
+  payload      Json?
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  error        String?             @db.Text
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tender       Tender?             @relation(fields: [tenderId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, channel, dedupeKey])
+  @@index([userId])
+  @@index([tenderId])
+  @@index([status])
+}
