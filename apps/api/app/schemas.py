@@ -10,6 +10,7 @@ ProviderErrorCode = Literal[
     "upstream_rate_limited",
     "invalid_provider_response",
     "provider_not_configured",
+    "purchase_not_found",
 ]
 
 
@@ -155,6 +156,169 @@ class EIS223SearchResponse(BaseModel):
     next_cursor: str | None = Field(default=None, serialization_alias="nextCursor")
     provider_mode: Literal["fixture", "live"] = Field(serialization_alias="providerMode")
     source_freshness: str | dict[str, Any] = Field(serialization_alias="sourceFreshness")
+
+
+class EIS223NormalizeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    lot_number: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("lotNumber", "lot_number"),
+        serialization_alias="lotNumber",
+    )
+    include_raw_payload: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("includeRawPayload", "include_raw_payload"),
+        serialization_alias="includeRawPayload",
+    )
+
+    @field_validator("lot_number", mode="before")
+    @classmethod
+    def clean_lot_number(cls, value: object) -> object:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+
+NormalizedDocumentType = Literal[
+    "NOTICE",
+    "DOCUMENTATION",
+    "CHANGE",
+    "CLARIFICATION",
+    "PROTOCOL",
+    "RESULT",
+    "CONTRACT_DRAFT",
+    "OTHER",
+]
+
+
+class NormalizedCustomerDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    name: str | None = None
+    inn: str | None = None
+    kpp: str | None = None
+    address: str | None = None
+
+
+class NormalizedPriceDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    max_price: Decimal | None = Field(default=None, serialization_alias="maxPrice")
+    price_formula: str | None = Field(default=None, serialization_alias="priceFormula")
+    currency_code: str | None = Field(default=None, serialization_alias="currencyCode")
+
+
+class NormalizedSecurityDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    application_security_amount: Decimal | None = Field(
+        default=None,
+        serialization_alias="applicationSecurityAmount",
+    )
+    contract_security_amount: Decimal | None = Field(
+        default=None,
+        serialization_alias="contractSecurityAmount",
+    )
+
+
+class NormalizedDeadlinesDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    application_start_at: datetime | None = Field(
+        default=None,
+        serialization_alias="applicationStartAt",
+    )
+    application_deadline_at: datetime | None = Field(
+        default=None,
+        serialization_alias="applicationDeadlineAt",
+    )
+    clarification_deadline_at: datetime | None = Field(
+        default=None,
+        serialization_alias="clarificationDeadlineAt",
+    )
+    result_at: datetime | None = Field(default=None, serialization_alias="resultAt")
+    published_at: datetime | None = Field(default=None, serialization_alias="publishedAt")
+    updated_from_source_at: datetime | None = Field(
+        default=None,
+        serialization_alias="updatedFromSourceAt",
+    )
+
+
+class NormalizedDeliveryDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    delivery_place: str | None = Field(default=None, serialization_alias="deliveryPlace")
+    delivery_period_text: str | None = Field(
+        default=None,
+        serialization_alias="deliveryPeriodText",
+    )
+
+
+class NormalizedRegionDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    region_code: str | None = Field(default=None, serialization_alias="regionCode")
+    region_name: str | None = Field(default=None, serialization_alias="regionName")
+
+
+class NormalizedDocumentDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    external_document_id: str | None = Field(
+        default=None,
+        serialization_alias="externalDocumentId",
+    )
+    type: NormalizedDocumentType
+    title: str
+    file_name: str | None = Field(default=None, serialization_alias="fileName")
+    source_url: str | None = Field(default=None, serialization_alias="sourceUrl")
+    source_hash: str | None = Field(default=None, serialization_alias="sourceHash")
+    published_at: datetime | None = Field(default=None, serialization_alias="publishedAt")
+
+
+class NormalizedChangeDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    at: datetime | None = None
+    title: str
+    description: str | None = None
+    source_hash: str | None = Field(default=None, serialization_alias="sourceHash")
+
+
+class NormalizedTenderDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    external_purchase_id: str = Field(serialization_alias="externalPurchaseId")
+    registry_number: str | None = Field(default=None, serialization_alias="registryNumber")
+    purchase_number: str | None = Field(default=None, serialization_alias="purchaseNumber")
+    lot_number: str | None = Field(default=None, serialization_alias="lotNumber")
+    source_hash: str | None = Field(default=None, serialization_alias="sourceHash")
+    source_url: str | None = Field(default=None, serialization_alias="sourceUrl")
+    platform_name: str | None = Field(default=None, serialization_alias="platformName")
+    title: str
+    subject_description: str | None = Field(
+        default=None,
+        serialization_alias="subjectDescription",
+    )
+    method_name: str | None = Field(default=None, serialization_alias="methodName")
+    status_name: str | None = Field(default=None, serialization_alias="statusName")
+    customer: NormalizedCustomerDTO
+    price: NormalizedPriceDTO
+    security: NormalizedSecurityDTO
+    deadlines: NormalizedDeadlinesDTO
+    delivery: NormalizedDeliveryDTO
+    region: NormalizedRegionDTO
+    okpd2_codes: list[str] = Field(default_factory=list, serialization_alias="okpd2Codes")
+    documents: list[NormalizedDocumentDTO] = Field(default_factory=list)
+    requirements: list[str] = Field(default_factory=list)
+    criteria: list[str] = Field(default_factory=list)
+    changes_feed: list[NormalizedChangeDTO] = Field(
+        default_factory=list,
+        serialization_alias="changesFeed",
+    )
+    source_payload: Any | None = Field(default=None, serialization_alias="sourcePayload")
 
 
 class ProviderErrorResponse(BaseModel):

@@ -36,3 +36,8 @@ class InvalidProviderResponseError(ProviderError):
 class ProviderNotConfiguredError(ProviderError):
     code = "provider_not_configured"
     status_code = 503
+
+
+class PurchaseNotFoundError(ProviderError):
+    code = "purchase_not_found"
+    status_code = 404

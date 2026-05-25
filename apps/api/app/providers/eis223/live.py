@@ -3,17 +3,23 @@ from collections.abc import Mapping
 from datetime import date, timedelta
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import quote, urlencode, urljoin
 from urllib.request import Request, urlopen
 
+from app.providers.eis223.normalization import normalize_eis223_purchase, normalize_eis223_tender
 from app.providers.eis223.protocol import EIS223SearchResult
-from app.providers.eis223.normalization import normalize_eis223_tender
 from app.providers.errors import (
     InvalidProviderResponseError,
+    PurchaseNotFoundError,
     UpstreamRateLimitedError,
     UpstreamUnavailableError,
 )
-from app.schemas import NormalizedTenderHit, SavedFilterExecutionRequest
+from app.schemas import (
+    EIS223NormalizeRequest,
+    NormalizedTenderDTO,
+    NormalizedTenderHit,
+    SavedFilterExecutionRequest,
+)
 from app.settings import ProviderMode
 
 
@@ -75,6 +81,47 @@ class LiveEIS223Provider:
             hits=normalized,
             next_cursor=_optional_string(payload.get("nextCursor")),
             source_freshness=_live_source_freshness(payload),
+        )
+
+    def normalize_purchase(
+        self,
+        external_purchase_id: str,
+        request: EIS223NormalizeRequest,
+    ) -> NormalizedTenderDTO:
+        query = urlencode({"lotNumber": request.lot_number}) if request.lot_number else ""
+        url = urljoin(self._base_url, f"tenders/{quote(external_purchase_id)}")
+        if query:
+            url = url + "?" + query
+        upstream_request = Request(
+            url,
+            headers={
+                "Authorization": "Bearer " + self._api_key,
+                "Accept": "application/json",
+            },
+            method="GET",
+        )
+
+        try:
+            with urlopen(upstream_request, timeout=self._timeout_seconds) as response:
+                response_body = response.read()
+        except HTTPError as exc:
+            if exc.code == 404:
+                raise PurchaseNotFoundError("EIS 223-FZ purchase was not found.") from exc
+            if exc.code == 429:
+                raise UpstreamRateLimitedError("EIS 223-FZ provider rate limit was reached.") from exc
+            raise UpstreamUnavailableError("EIS 223-FZ provider returned an upstream error.") from exc
+        except URLError as exc:
+            raise UpstreamUnavailableError("EIS 223-FZ provider is unavailable.") from exc
+        except TimeoutError as exc:
+            raise UpstreamUnavailableError("EIS 223-FZ provider request timed out.") from exc
+
+        payload = _json_object(response_body)
+        item = _purchase_item(payload)
+        return normalize_eis223_purchase(
+            item,
+            external_purchase_id=external_purchase_id,
+            lot_number=request.lot_number,
+            include_raw_payload=request.include_raw_payload,
         )
 
 
@@ -145,6 +192,15 @@ def _json_object(response_body: bytes) -> Mapping[str, Any]:
     if not isinstance(payload, Mapping):
         raise InvalidProviderResponseError("Provider response must be a JSON object.")
     return payload
+
+
+def _purchase_item(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    item = payload.get("item") or payload.get("purchase") or payload
+    if not isinstance(item, Mapping):
+        raise InvalidProviderResponseError("Provider purchase response must be a JSON object.")
+    if "purchase" in item:
+        return item
+    return {"purchase": item}
 
 
 def _optional_string(value: object) -> str | None:

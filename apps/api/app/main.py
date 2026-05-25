@@ -1,12 +1,17 @@
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Path
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.providers.eis223.factory import build_eis223_provider
 from app.providers.errors import ProviderError
-from app.schemas import EIS223SearchResponse, SavedFilterExecutionRequest
+from app.schemas import (
+    EIS223NormalizeRequest,
+    EIS223SearchResponse,
+    NormalizedTenderDTO,
+    SavedFilterExecutionRequest,
+)
 from app.settings import ProviderMode, get_settings
 
 
@@ -58,4 +63,21 @@ def search_eis223(request: SavedFilterExecutionRequest) -> EIS223SearchResponse:
         next_cursor=result.next_cursor,
         provider_mode=provider.mode,
         source_freshness=result.source_freshness,
+    )
+
+
+@app.post(
+    "/v1/eis223/purchase/{externalPurchaseId}/normalize",
+    response_model=NormalizedTenderDTO,
+    tags=["eis223"],
+)
+def normalize_eis223_purchase(
+    external_purchase_id: str = Path(alias="externalPurchaseId"),
+    request: EIS223NormalizeRequest | None = None,
+) -> NormalizedTenderDTO:
+    settings = get_settings()
+    provider = build_eis223_provider(settings)
+    return provider.normalize_purchase(
+        external_purchase_id,
+        request or EIS223NormalizeRequest(),
     )

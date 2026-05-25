@@ -5,10 +5,15 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from app.providers.eis223.normalization import normalize_eis223_tender
+from app.providers.eis223.normalization import normalize_eis223_purchase, normalize_eis223_tender
 from app.providers.eis223.protocol import EIS223SearchResult
-from app.providers.errors import InvalidProviderResponseError
-from app.schemas import NormalizedTenderHit, SavedFilterExecutionRequest
+from app.providers.errors import InvalidProviderResponseError, PurchaseNotFoundError
+from app.schemas import (
+    EIS223NormalizeRequest,
+    NormalizedTenderDTO,
+    NormalizedTenderHit,
+    SavedFilterExecutionRequest,
+)
 from app.settings import ProviderMode
 
 
@@ -48,6 +53,23 @@ class FixtureEIS223Provider:
         request: SavedFilterExecutionRequest,
     ) -> list[NormalizedTenderHit]:
         return self.search(request).hits
+
+    def normalize_purchase(
+        self,
+        external_purchase_id: str,
+        request: EIS223NormalizeRequest,
+    ) -> NormalizedTenderDTO:
+        for item in self._load_items():
+            purchase = _mapping(item.get("purchase", item))
+            if external_purchase_id in _purchase_ids(purchase):
+                return normalize_eis223_purchase(
+                    item,
+                    external_purchase_id=external_purchase_id,
+                    lot_number=request.lot_number,
+                    include_raw_payload=request.include_raw_payload,
+                )
+
+        raise PurchaseNotFoundError("EIS 223-FZ purchase was not found.")
 
     def _load_payload(self) -> Mapping[str, Any]:
         try:
@@ -226,6 +248,15 @@ def _mapping(value: object) -> Mapping[str, Any]:
     if isinstance(value, Mapping):
         return value
     return {}
+
+
+def _purchase_ids(purchase: Mapping[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for key in ["externalPurchaseId", "externalId", "purchaseId", "guid", "purchaseNumber"]:
+        value = _string(purchase.get(key))
+        if value is not None:
+            ids.add(value)
+    return ids
 
 
 def _string(value: object) -> str | None:

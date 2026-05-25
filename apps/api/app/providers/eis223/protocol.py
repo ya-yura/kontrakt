@@ -1,7 +1,12 @@
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from app.schemas import NormalizedTenderHit, SavedFilterExecutionRequest
+from app.schemas import (
+    EIS223NormalizeRequest,
+    NormalizedTenderDTO,
+    NormalizedTenderHit,
+    SavedFilterExecutionRequest,
+)
 from app.settings import ProviderMode
 
 
@@ -20,6 +25,13 @@ class EIS223Provider(Protocol):
         request: SavedFilterExecutionRequest,
     ) -> EIS223SearchResult:
         """Return normalized 223-FZ tender hits without persisting state."""
+
+    def normalize_purchase(
+        self,
+        external_purchase_id: str,
+        request: EIS223NormalizeRequest,
+    ) -> NormalizedTenderDTO:
+        """Return a detailed normalized tender DTO without persisting state."""
 
     def execute_saved_filter(
         self,

@@ -11,8 +11,13 @@
         "purchaseName": "Поставка медицинских расходных материалов для стоматологической клиники",
         "purchaseStage": "APPLICATION_SUBMISSION",
         "publicationDate": "2026-05-20",
+        "applicationStartDateTime": "2026-05-20T10:00:00+03:00",
         "submissionCloseDateTime": "2026-06-03T10:00:00+03:00",
+        "clarificationEndDateTime": "2026-05-29T18:00:00+03:00",
+        "resultsPublicationDateTime": "2026-06-05T17:00:00+03:00",
+        "lastUpdateDateTime": "2026-05-24T09:00:00+03:00",
         "href": "https://zakupki.gov.ru/epz/order/notice/notice223/common-info.html?regNumber=32413500001",
+        "platformName": "РТС-тендер",
         "placingWay": {
           "code": "12010",
           "name": "Запрос котировок в электронной форме"
@@ -21,14 +26,101 @@
           "fullName": "АО \"Городская стоматология\"",
           "inn": "7701234567",
           "kpp": "770101001",
+          "address": "101000, г. Москва, ул. Тестовая, д. 1",
+          "regionCode": "77",
           "regionName": "Москва"
         },
+        "documents": [
+          {
+            "documentId": "32413500001-notice",
+            "type": "notice",
+            "title": "Извещение о закупке",
+            "fileName": "32413500001-notice.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/notice.pdf",
+            "publicationDate": "2026-05-20T09:30:00+03:00"
+          },
+          {
+            "documentId": "32413500001-docs",
+            "type": "documentation",
+            "title": "Закупочная документация",
+            "fileName": "32413500001-docs.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/docs.pdf",
+            "publicationDate": "2026-05-20T09:35:00+03:00"
+          },
+          {
+            "documentId": "32413500001-change",
+            "type": "change",
+            "title": "Изменение извещения",
+            "fileName": "32413500001-change.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/change.pdf",
+            "publicationDate": "2026-05-22T13:10:00+03:00"
+          },
+          {
+            "documentId": "32413500001-clarification",
+            "type": "clarification",
+            "title": "Разъяснение положений документации",
+            "fileName": "32413500001-clarification.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/clarification.pdf",
+            "publicationDate": "2026-05-23T11:00:00+03:00"
+          },
+          {
+            "documentId": "32413500001-protocol",
+            "type": "protocol",
+            "title": "Протокол рассмотрения заявок",
+            "fileName": "32413500001-protocol.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/protocol.pdf",
+            "publicationDate": "2026-06-04T12:00:00+03:00"
+          },
+          {
+            "documentId": "32413500001-result",
+            "type": "result",
+            "title": "Итоги закупки",
+            "fileName": "32413500001-result.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/result.pdf",
+            "publicationDate": "2026-06-05T17:00:00+03:00"
+          },
+          {
+            "documentId": "32413500001-contract-draft",
+            "type": "contract_draft",
+            "title": "Проект договора",
+            "fileName": "32413500001-contract-draft.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/contract-draft.pdf",
+            "publicationDate": "2026-05-20T09:40:00+03:00"
+          },
+          {
+            "documentId": "32413500001-other",
+            "type": "other",
+            "title": "Справочная информация",
+            "fileName": "32413500001-other.pdf",
+            "href": "https://zakupki.gov.ru/223/32413500001/other.pdf",
+            "publicationDate": "2026-05-20T09:45:00+03:00"
+          }
+        ],
+        "changesFeed": [
+          {
+            "at": "2026-05-22T13:10:00+03:00",
+            "title": "Опубликовано изменение",
+            "description": "Заказчик обновил состав закупочной документации."
+          }
+        ],
         "lots": [
           {
             "lotNumber": 1,
             "subject": "Расходные материалы и инструменты для терапевтической стоматологии",
             "initialMaxPrice": "1850000.00",
+            "applicationSecurityAmount": "18500.00",
+            "contractSecurityAmount": "92500.00",
             "currency": "RUB",
+            "deliveryPlace": "г. Москва, склад заказчика",
+            "deliveryPeriodText": "В течение 20 рабочих дней с даты заключения договора",
+            "requirements": [
+              "Наличие регистрационных удостоверений на медицинские изделия",
+              "Отсутствие в реестре недобросовестных поставщиков"
+            ],
+            "criteria": [
+              "Цена договора",
+              "Срок поставки"
+            ],
             "okpd2": [
               {
                 "code": "32.50.11.000",
