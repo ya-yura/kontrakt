@@ -2,14 +2,11 @@ import { eis223TenderFixtures } from "../fixtures/eis-223-tenders";
 
 export type NormalizedTenderSourceStage =
   | "UNKNOWN"
-  | "DRAFT"
-  | "PUBLISHED"
-  | "APPLICATIONS_OPEN"
-  | "APPLICATIONS_REVIEW"
-  | "RESULTS_PUBLISHED"
-  | "CONTRACTING"
+  | "SUBMISSION_OPEN"
+  | "COMMISSION_WORK"
   | "COMPLETED"
-  | "CANCELLED";
+  | "CANCELED"
+  | "EXPIRED";
 
 export type NormalizedTenderDecision = "UNDECIDED" | "REVIEW" | "BID" | "NO_BID";
 

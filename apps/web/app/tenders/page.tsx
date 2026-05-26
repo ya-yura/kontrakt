@@ -20,14 +20,11 @@ const sortLabels: Record<TenderSort, string> = {
 
 const sourceStageLabels: Record<string, string> = {
   UNKNOWN: "Unknown",
-  DRAFT: "Draft",
-  PUBLISHED: "Published",
-  APPLICATIONS_OPEN: "Applications open",
-  APPLICATIONS_REVIEW: "Applications review",
-  RESULTS_PUBLISHED: "Results published",
-  CONTRACTING: "Contracting",
+  SUBMISSION_OPEN: "Submission open",
+  COMMISSION_WORK: "Commission work",
   COMPLETED: "Completed",
-  CANCELLED: "Cancelled"
+  CANCELED: "Canceled",
+  EXPIRED: "Expired"
 };
 
 const decisionLabels: Record<string, string> = {
@@ -90,6 +87,18 @@ function formatDeadline(value: Date | null) {
   }).format(value);
 }
 
+function formatNullableDateTime(value: Date | null) {
+  return value ? formatDeadline(value) : "Не указан";
+}
+
+function providerModeLabel(value: string) {
+  if (value === "live") {
+    return "live";
+  }
+
+  return "fixture";
+}
+
 export default async function TendersPage({ searchParams }: TendersPageProps) {
   const currentUser = await requireCurrentUser();
   const params = searchParams ? await searchParams : {};
@@ -109,6 +118,9 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
       initialPrice: true,
       currency: true,
       submissionDeadline: true,
+      lastSeenAt: true,
+      updatedFromSourceAt: true,
+      providerMode: true,
       sourceStage: true,
       decision: true,
       kanbanStage: {
@@ -142,6 +154,10 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
         <div>
           <p className="section-kicker">Daily work list</p>
           <h2>{tenders.length} закупок в рабочем списке</h2>
+          <p className="toolbar-note">
+            Source freshness показывает последний refresh в workspace. Upstream не является
+            real-time stream.
+          </p>
         </div>
         <div className="sort-links" aria-label="Tender sorting">
           {(Object.keys(sortLabels) as TenderSort[]).map((sortOption) => (
@@ -175,6 +191,7 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
                 <th>Max price</th>
                 <th>applicationDeadlineAt</th>
                 <th>sourceStage</th>
+                <th>Freshness</th>
                 <th>KanbanStage</th>
                 <th>Decision</th>
                 <th>Score</th>
@@ -202,6 +219,18 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
                     <span className="badge badge-source">
                       {sourceStageLabels[tender.sourceStage] ?? tender.sourceStage}
                     </span>
+                  </td>
+                  <td>
+                    <span className="freshness-line">
+                      lastSeenAt: {formatNullableDateTime(tender.lastSeenAt)}
+                    </span>
+                    <span className="freshness-line">
+                      updatedFromSourceAt: {formatNullableDateTime(tender.updatedFromSourceAt)}
+                    </span>
+                    <span className="freshness-line">
+                      providerMode: {providerModeLabel(tender.providerMode)}
+                    </span>
+                    <span className="freshness-note">Upstream не real-time stream</span>
                   </td>
                   <td>
                     <span className="badge badge-kanban">{tender.kanbanStage.name}</span>

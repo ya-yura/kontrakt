@@ -284,6 +284,14 @@ h2 {
   font-size: 13px;
 }
 
+.filter-run-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .filter-actions,
 .form-actions {
   display: flex;
@@ -416,6 +424,14 @@ h2 {
   margin-bottom: 16px;
 }
 
+.toolbar-note {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .sort-links {
   display: flex;
   flex-wrap: wrap;
@@ -449,7 +465,7 @@ h2 {
 
 .tenders-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1280px;
   border-collapse: collapse;
 }
 
@@ -544,6 +560,23 @@ h2 {
   font-size: 11px;
   font-weight: 800;
   padding: 4px 7px;
+}
+
+.freshness-line,
+.freshness-note {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.freshness-line:first-child {
+  margin-top: 0;
+}
+
+.freshness-note {
+  font-weight: 800;
 }
 
 .score-placeholder {
@@ -666,10 +699,35 @@ h2 {
 
 .stage-split {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-top: 16px;
   padding: 18px;
+}
+
+.freshness-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.freshness-list div {
+  display: grid;
+  gap: 2px;
+}
+
+.freshness-list dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.freshness-list dd {
+  margin: 0;
+  color: #1f2937;
+  font-size: 13px;
 }
 
 .stage-split code,

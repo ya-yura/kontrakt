@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import type { ActionError, SavedFilterView } from "@/src/saved-filters/service";
 import type { SavedFilterInput, UpdateSavedFilterInput } from "@/src/saved-filters/schemas";
-import { createSavedFilter, deleteSavedFilter, updateSavedFilter } from "./actions";
+import { createSavedFilter, deleteSavedFilter, runSavedFilterNow, updateSavedFilter } from "./actions";
 
 type WatchlistsClientProps = {
   currentUserEmail: string;
@@ -138,6 +138,10 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatNullableDate(value: string | null) {
+  return value ? formatDate(value) : "Never";
+}
+
 function formatPriceRange(minPrice: number | null, maxPrice: number | null) {
   if (minPrice != null && maxPrice != null) {
     return `${minPrice.toLocaleString("ru-RU")} - ${maxPrice.toLocaleString("ru-RU")} RUB`;
@@ -264,6 +268,25 @@ export function WatchlistsClient({ currentUserEmail, initialFilters }: Watchlist
     });
   }
 
+  function handleRun(filter: SavedFilterView) {
+    setActionError(null);
+    setNotice(null);
+
+    startTransition(async () => {
+      const result = await runSavedFilterNow(filter.id);
+
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+
+      setFilters((current) => upsertFilter(current, result.data.filter));
+      setNotice(
+        `Refresh complete: ${result.data.summary.tendersCreated} created, ${result.data.summary.tendersUpdated} updated, ${result.data.summary.errorsCount} errors.`
+      );
+    });
+  }
+
   function renderError(field: keyof WatchlistFormDraft | "filterId") {
     const messages = fieldErrors[field];
 
@@ -298,8 +321,19 @@ export function WatchlistsClient({ currentUserEmail, initialFilters }: Watchlist
                   <div>
                     <h3>{filter.name}</h3>
                     <time dateTime={filter.updatedAt}>Updated {formatDate(filter.updatedAt)}</time>
+                    <span className="filter-run-meta">
+                      Last run {formatNullableDate(filter.lastRunAt)} · {filter.lastResultCount} hits
+                    </span>
                   </div>
                   <div className="filter-actions">
+                    <button
+                      className="primary-button"
+                      disabled={isPending}
+                      onClick={() => handleRun(filter)}
+                      type="button"
+                    >
+                      Refresh
+                    </button>
                     <button
                       className="secondary-button"
                       disabled={isPending}

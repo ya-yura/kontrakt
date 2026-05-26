@@ -19,6 +19,10 @@ export default async function WatchlistsPage() {
       userId: true,
       name: true,
       query: true,
+      isActive: true,
+      lastRunAt: true,
+      lastCursor: true,
+      lastResultCount: true,
       createdAt: true,
       updatedAt: true
     }

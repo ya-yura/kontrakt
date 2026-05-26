@@ -20,14 +20,11 @@ type ChangeFeedItem = {
 
 const sourceStageLabels: Record<string, string> = {
   UNKNOWN: "Unknown",
-  DRAFT: "Draft",
-  PUBLISHED: "Published",
-  APPLICATIONS_OPEN: "Applications open",
-  APPLICATIONS_REVIEW: "Applications review",
-  RESULTS_PUBLISHED: "Results published",
-  CONTRACTING: "Contracting",
+  SUBMISSION_OPEN: "Submission open",
+  COMMISSION_WORK: "Commission work",
   COMPLETED: "Completed",
-  CANCELLED: "Cancelled"
+  CANCELED: "Canceled",
+  EXPIRED: "Expired"
 };
 
 const decisionLabels: Record<string, string> = {
@@ -106,6 +103,14 @@ function formatCountdown(deadline: Date | null) {
   return `Осталось ${days} д ${hours} ч`;
 }
 
+function providerModeLabel(value: string) {
+  if (value === "live") {
+    return "live";
+  }
+
+  return "fixture";
+}
+
 function toStringList(value: Prisma.JsonValue | null, fallback: string) {
   if (!Array.isArray(value)) {
     return [fallback];
@@ -177,6 +182,9 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
       requiredDocuments: true,
       evaluationCriteria: true,
       changesFeed: true,
+      lastSeenAt: true,
+      updatedFromSourceAt: true,
+      providerMode: true,
       sourceStage: true,
       decision: true,
       kanbanStage: {
@@ -295,12 +303,31 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
           <span className="badge badge-source">
             {sourceStageLabels[tender.sourceStage] ?? tender.sourceStage}
           </span>
+          <small>Подсказка из source documents/deadline; KanbanStage не меняется автоматически.</small>
         </div>
         <div>
           <p className="section-kicker">KanbanStage</p>
           <span className="badge badge-kanban">{tender.kanbanStage.name}</span>
           <code>{tender.kanbanStage.code}</code>
           {tender.kanbanStage.description ? <small>{tender.kanbanStage.description}</small> : null}
+        </div>
+        <div>
+          <p className="section-kicker">Source freshness</p>
+          <dl className="freshness-list">
+            <div>
+              <dt>lastSeenAt</dt>
+              <dd>{formatDate(tender.lastSeenAt)}</dd>
+            </div>
+            <div>
+              <dt>updatedFromSourceAt</dt>
+              <dd>{formatDate(tender.updatedFromSourceAt)}</dd>
+            </div>
+            <div>
+              <dt>providerMode</dt>
+              <dd>{providerModeLabel(tender.providerMode)}</dd>
+            </div>
+          </dl>
+          <small>Upstream updates are refreshed by runs; this is not a real-time stream.</small>
         </div>
       </section>
 

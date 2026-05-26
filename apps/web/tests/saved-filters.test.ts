@@ -57,6 +57,10 @@ class MemorySavedFilterStore implements SavedFilterStore {
       userId: data.userId,
       name: data.name,
       query: data.query,
+      isActive: true,
+      lastRunAt: null,
+      lastCursor: null,
+      lastResultCount: 0,
       createdAt: new Date("2026-05-25T00:00:00.000Z"),
       updatedAt: new Date("2026-05-25T00:00:00.000Z")
     };
@@ -108,6 +112,10 @@ function seedRecord(overrides: Partial<SavedFilterRecord>): SavedFilterRecord {
     userId: "user-1",
     name: "Existing",
     query: savedFilterInputSchema.parse({ name: "Existing" }),
+    isActive: true,
+    lastRunAt: null,
+    lastCursor: null,
+    lastResultCount: 0,
     createdAt: new Date("2026-05-25T00:00:00.000Z"),
     updatedAt: new Date("2026-05-25T00:00:00.000Z"),
     ...overrides

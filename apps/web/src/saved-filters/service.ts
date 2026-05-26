@@ -17,6 +17,8 @@ export type ActionErrorCode =
   | "UNAUTHORIZED"
   | "NOT_FOUND"
   | "DUPLICATE_NAME"
+  | "RUN_IN_PROGRESS"
+  | "RUN_FAILED"
   | "UNKNOWN_ERROR";
 
 export type ActionError = {
@@ -40,6 +42,10 @@ export type SavedFilterRecord = {
   userId: string;
   name: string;
   query: unknown;
+  isActive: boolean;
+  lastRunAt: Date | string | null;
+  lastCursor: string | null;
+  lastResultCount: number;
   createdAt: Date | string;
   updatedAt: Date | string;
 };
@@ -54,6 +60,10 @@ export type SavedFilterView = {
   id: string;
   name: string;
   query: SavedFilterQuery;
+  isActive: boolean;
+  lastRunAt: string | null;
+  lastCursor: string | null;
+  lastResultCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -141,6 +151,14 @@ function toIsoDate(value: Date | string) {
   return typeof value === "string" ? value : value.toISOString();
 }
 
+function toNullableIsoDate(value: Date | string | null) {
+  if (value === null) {
+    return null;
+  }
+
+  return typeof value === "string" ? value : value.toISOString();
+}
+
 export function normalizeSavedFilterQuery(query: unknown): SavedFilterQuery {
   const parsed = savedFilterQuerySchema.safeParse(query);
   return parsed.success ? parsed.data : emptySavedFilterQuery;
@@ -151,6 +169,10 @@ export function toSavedFilterView(record: SavedFilterRecord): SavedFilterView {
     id: record.id,
     name: record.name,
     query: normalizeSavedFilterQuery(record.query),
+    isActive: record.isActive,
+    lastRunAt: toNullableIsoDate(record.lastRunAt),
+    lastCursor: record.lastCursor,
+    lastResultCount: record.lastResultCount,
     createdAt: toIsoDate(record.createdAt),
     updatedAt: toIsoDate(record.updatedAt)
   };

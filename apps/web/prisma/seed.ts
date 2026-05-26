@@ -9,6 +9,10 @@ import {
 } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { EIS223Adapter } from "../src/tenders/adapters/eis-223-adapter";
+import {
+  createDocumentDedupeKey,
+  createTenderSourceDedupeKey
+} from "../src/watchlists/source-identity";
 
 const databaseUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 
@@ -122,9 +126,15 @@ async function main() {
   const stageIdsByCode = new Map(stageRecords.map((stage) => [stage.code, stage.id]));
   const adapter = new EIS223Adapter();
   const tenders = await adapter.listNormalizedTenders();
+  const seedSeenAt = new Date();
 
   for (const tender of tenders) {
     const kanbanStageId = stageIdsByCode.get(tender.kanbanStageCode);
+    const sourceDedupeKey = createTenderSourceDedupeKey(
+      currentUser.id,
+      tender.externalId,
+      tender.lotNumber ?? null
+    );
 
     if (!kanbanStageId) {
       throw new Error(`Missing Kanban stage for fixture: ${tender.kanbanStageCode}`);
@@ -132,12 +142,10 @@ async function main() {
 
     const record = await prisma.tender.upsert({
       where: {
-        sourceSystem_externalId: {
-          sourceSystem: TenderSourceSystem.EIS,
-          externalId: tender.externalId
-        }
+        sourceDedupeKey
       },
       update: {
+        sourceDedupeKey,
         registryNumber: tender.registryNumber,
         lotNumber: tender.lotNumber,
         title: tender.title,
@@ -163,6 +171,9 @@ async function main() {
         requiredDocuments: tender.requiredDocuments,
         evaluationCriteria: tender.evaluationCriteria,
         changesFeed: tender.changesFeed,
+        lastSeenAt: seedSeenAt,
+        updatedFromSourceAt: null,
+        providerMode: "fixture",
         sourceStage: TenderSourceStage[tender.sourceStage],
         decision: TenderDecision[tender.decision],
         kanbanStageId,
@@ -171,6 +182,7 @@ async function main() {
       create: {
         sourceSystem: TenderSourceSystem.EIS,
         externalId: tender.externalId,
+        sourceDedupeKey,
         registryNumber: tender.registryNumber,
         lotNumber: tender.lotNumber,
         title: tender.title,
@@ -196,6 +208,9 @@ async function main() {
         requiredDocuments: tender.requiredDocuments,
         evaluationCriteria: tender.evaluationCriteria,
         changesFeed: tender.changesFeed,
+        lastSeenAt: seedSeenAt,
+        updatedFromSourceAt: null,
+        providerMode: "fixture",
         sourceStage: TenderSourceStage[tender.sourceStage],
         decision: TenderDecision[tender.decision],
         kanbanStageId,
@@ -213,11 +228,20 @@ async function main() {
       await prisma.document.createMany({
         data: tender.documents.map((document) => ({
           tenderId: record.id,
+          externalDocumentId: document.externalId,
+          dedupeKey: createDocumentDedupeKey({
+            externalDocumentId: document.externalId,
+            sourceHash: null,
+            sourceUrl: document.sourceUrl ?? null,
+            title: document.title
+          }),
           type: DocumentType[document.type],
           title: document.title,
           fileName: document.fileName ?? null,
           status: DocumentStatus[document.status],
           sourceUrl: document.sourceUrl,
+          sourceHash: null,
+          checksum: null,
           storageKey: `mock/eis-223/${tender.externalId}/${document.externalId}.pdf`,
           uploadedById: currentUser.id
         }))

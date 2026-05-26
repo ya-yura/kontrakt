@@ -45,7 +45,7 @@ export const eis223TenderFixtures = [
         description: "Заказчик уточнил требования к партиям поставки."
       }
     ],
-    sourceStage: "APPLICATIONS_OPEN",
+    sourceStage: "SUBMISSION_OPEN",
     kanbanStageCode: "INBOX",
     decision: "REVIEW",
     documents: [
@@ -113,7 +113,7 @@ export const eis223TenderFixtures = [
       "Срок реакции на заявку"
     ],
     changesFeed: [],
-    sourceStage: "PUBLISHED",
+    sourceStage: "SUBMISSION_OPEN",
     kanbanStageCode: "QUALIFY",
     decision: "UNDECIDED",
     documents: [
@@ -177,7 +177,7 @@ export const eis223TenderFixtures = [
         description: "Статус источника перешел в рассмотрение заявок."
       }
     ],
-    sourceStage: "APPLICATIONS_REVIEW",
+    sourceStage: "UNKNOWN",
     kanbanStageCode: "GO",
     decision: "BID",
     documents: []
@@ -231,7 +231,7 @@ export const eis223TenderFixtures = [
         description: "В mock source появились результаты рассмотрения."
       }
     ],
-    sourceStage: "RESULTS_PUBLISHED",
+    sourceStage: "COMPLETED",
     kanbanStageCode: "PREPARE",
     decision: "REVIEW",
     documents: [
@@ -290,7 +290,7 @@ export const eis223TenderFixtures = [
       "Соответствие сертификатов"
     ],
     changesFeed: [],
-    sourceStage: "CONTRACTING",
+    sourceStage: "COMMISSION_WORK",
     kanbanStageCode: "SUBMITTED_EXTERNALLY",
     decision: "NO_BID",
     documents: [

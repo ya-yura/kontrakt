@@ -25,14 +25,11 @@ enum TenderSourceSystem {
 
 enum TenderSourceStage {
   UNKNOWN
-  DRAFT
-  PUBLISHED
-  APPLICATIONS_OPEN
-  APPLICATIONS_REVIEW
-  RESULTS_PUBLISHED
-  CONTRACTING
+  SUBMISSION_OPEN
+  COMMISSION_WORK
   COMPLETED
-  CANCELLED
+  CANCELED
+  EXPIRED
 }
 
 enum TenderPriority {
@@ -141,19 +138,34 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model RuntimeLock {
+  name       String   @id
+  ownerToken String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 model SavedFilter {
-  id        String           @id @default(cuid())
-  userId    String
-  name      String
-  scope     SavedFilterScope @default(PRIVATE)
-  query     Json
-  isDefault Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  userId          String
+  name            String
+  scope           SavedFilterScope @default(PRIVATE)
+  query           Json
+  isDefault       Boolean          @default(false)
+  isActive        Boolean          @default(true)
+  lastRunAt       DateTime?
+  lastCursor      String?
+  lastResultCount Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, name])
   @@index([userId])
+  @@index([isActive, lastRunAt])
 }
 
 model KanbanStage {
@@ -175,6 +187,7 @@ model Tender {
   id                        String             @id @default(cuid())
   sourceSystem              TenderSourceSystem @default(MANUAL)
   externalId                String
+  sourceDedupeKey           String             @unique
   registryNumber            String?
   lotNumber                 String?
   title                     String
@@ -198,6 +211,10 @@ model Tender {
   requiredDocuments         Json?
   evaluationCriteria        Json?
   changesFeed               Json?
+  payloadHash               String?
+  lastSeenAt                DateTime?
+  updatedFromSourceAt       DateTime?
+  providerMode              String             @default("fixture")
   sourceStage               TenderSourceStage  @default(UNKNOWN)
   priority                  TenderPriority     @default(NORMAL)
   decision                  TenderDecision     @default(UNDECIDED)
@@ -211,32 +228,37 @@ model Tender {
   aiAnalyses                AIAnalysis[]
   alertDeliveries           AlertDelivery[]
 
-  @@unique([sourceSystem, externalId])
   @@index([kanbanStageId])
   @@index([ownerId])
   @@index([sourceStage])
+  @@index([lastSeenAt])
   @@index([decision])
   @@index([submissionDeadline])
+  @@index([ownerId, externalId, lotNumber])
 }
 
 model Document {
-  id           String         @id @default(cuid())
-  tenderId     String
-  type         DocumentType   @default(OTHER)
-  title        String
-  fileName     String?
-  status       DocumentStatus @default(AVAILABLE)
-  sourceUrl    String?
-  storageKey   String?
-  checksum     String?
-  uploadedById String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  tender       Tender         @relation(fields: [tenderId], references: [id], onDelete: Cascade)
-  uploadedBy   User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  id                 String         @id @default(cuid())
+  tenderId           String
+  externalDocumentId String?
+  dedupeKey          String
+  type               DocumentType   @default(OTHER)
+  title              String
+  fileName           String?
+  status             DocumentStatus @default(AVAILABLE)
+  sourceUrl          String?
+  sourceHash         String?
+  storageKey         String?
+  checksum           String?
+  uploadedById       String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  tender             Tender         @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  uploadedBy         User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([tenderId])
   @@index([uploadedById])
+  @@unique([tenderId, dedupeKey])
 }
 
 model AIAnalysis {
