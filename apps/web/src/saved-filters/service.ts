@@ -194,7 +194,10 @@ function buildSavedFilterQuery(input: SavedFilterValues | UpdateSavedFilterValue
     onlyWithSecurity: input.onlyWithSecurity,
     onlyForMsp: input.onlyForMsp,
     notifyOnNew: input.notifyOnNew,
-    notifyOnChanges: input.notifyOnChanges
+    notifyOnChanges: input.notifyOnChanges,
+    notifyEmail: input.notifyEmail,
+    notifyTelegram: input.notifyTelegram,
+    alertPreferences: input.alertPreferences
   };
 }
 

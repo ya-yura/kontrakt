@@ -1,15 +1,18 @@
 import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { acknowledgeAlertFromForm } from "./actions";
 import { TenderScoringClient, type TenderScoringView } from "./tender-scoring-client";
 import { TenderWorkspaceClient } from "./tender-workspace-client";
 import { requireCurrentUser } from "@/src/auth/dev-auth";
+import { deriveAlertDeliveryDisplay } from "@/src/alerts/delivery-status";
 import {
   buildChecklistStateForTemplate,
   parseChecklistState,
   parseChecklistTemplate
 } from "@/src/board/checklist";
 import { getPrismaClient } from "@/src/lib/prisma";
+import { findTenderCardForUser } from "@/src/tenders/tender-card-query";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +58,16 @@ const documentStatusLabels: Record<string, string> = {
   AVAILABLE: "Available",
   EXTERNAL_ONLY: "External only",
   MISSING: "Missing"
+};
+
+const alertTypeLabels: Record<string, string> = {
+  NEW_MATCH: "New match",
+  DEADLINE_T48: "Deadline T-48h",
+  DEADLINE_T24: "Deadline T-24h",
+  DEADLINE_T2: "Deadline T-2h",
+  NEW_CHANGE: "New change",
+  NEW_CLARIFICATION: "New clarification",
+  STAGE_SLA_BREACH: "Stage SLA breach"
 };
 
 function formatMoney(value: Prisma.Decimal | string | null | undefined, currency: string) {
@@ -186,75 +199,7 @@ function toChanges(value: Prisma.JsonValue | null): ChangeFeedItem[] {
 
 export default async function TenderCardPage({ params }: TenderCardPageProps) {
   const [{ id }, currentUser] = await Promise.all([params, requireCurrentUser()]);
-  const prisma = getPrismaClient();
-  const tender = await prisma.tender.findFirst({
-    where: {
-      id,
-      ownerId: currentUser.id
-    },
-    select: {
-      id: true,
-      registryNumber: true,
-      lotNumber: true,
-      title: true,
-      description: true,
-      customerInn: true,
-      customerName: true,
-      purchaseMethod: true,
-      initialPrice: true,
-      currency: true,
-      region: true,
-      sourceUrl: true,
-      publishedAt: true,
-      applicationStartAt: true,
-      submissionDeadline: true,
-      clarificationDeadlineAt: true,
-      resultAt: true,
-      bidSecurityAmount: true,
-      contractSecurityAmount: true,
-      paymentTerms: true,
-      participationRequirements: true,
-      requiredDocuments: true,
-      evaluationCriteria: true,
-      changesFeed: true,
-      lastSeenAt: true,
-      updatedFromSourceAt: true,
-      providerMode: true,
-      sourceStage: true,
-      decision: true,
-      decisionReason: true,
-      scoreTotal: true,
-      scoreFit: true,
-      scoreEconomics: true,
-      scoreExecutionRisk: true,
-      scoreComplianceRisk: true,
-      scoreUrgency: true,
-      scoreConfidence: true,
-      lastScoredAt: true,
-      checklistState: true,
-      ownerComment: true,
-      kanbanStage: {
-        select: {
-          code: true,
-          name: true,
-          description: true,
-          checklistTemplate: true
-        }
-      },
-      documents: {
-        orderBy: [{ createdAt: "asc" }, { title: "asc" }],
-        select: {
-          id: true,
-          type: true,
-          title: true,
-          fileName: true,
-          status: true,
-          sourceUrl: true,
-          storageKey: true
-        }
-      }
-    }
-  });
+  const tender = await findTenderCardForUser(getPrismaClient(), id, currentUser.id);
 
   if (!tender) {
     notFound();
@@ -391,6 +336,66 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
         initialChecklistState={checklistState}
         initialOwnerComment={tender.ownerComment ?? ""}
       />
+
+      <section className="tender-section alert-history-section" aria-labelledby="alerts-heading">
+        <div className="section-heading">
+          <p className="section-kicker">Alerts</p>
+          <h2 id="alerts-heading">История алертов</h2>
+        </div>
+        {tender.alertDeliveries.length === 0 ? (
+          <div className="empty-state compact-empty">
+            <h3>Алертов пока нет</h3>
+            <p>После alerts/run здесь появятся записи AlertDelivery без sensitive payload.</p>
+          </div>
+        ) : (
+          <ol className="alert-history-list">
+            {tender.alertDeliveries.map((alert) => {
+              const deliveryDisplay = deriveAlertDeliveryDisplay(alert);
+
+              return (
+                <li key={alert.id}>
+                  <div>
+                    <span className="badge badge-alert">
+                      {alertTypeLabels[alert.type] ?? alert.type}
+                    </span>
+                    <strong>{alert.channel}</strong>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>mode</dt>
+                      <dd>{deliveryDisplay.mode}</dd>
+                    </div>
+                    <div>
+                      <dt>status</dt>
+                      <dd>{deliveryDisplay.status}</dd>
+                    </div>
+                    <div>
+                      <dt>created</dt>
+                      <dd>{formatDate(alert.createdAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>sentAt</dt>
+                      <dd>{formatDate(alert.sentAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>acknowledgedAt</dt>
+                      <dd>{formatDate(alert.acknowledgedAt)}</dd>
+                    </div>
+                  </dl>
+                  {alert.errorMessage ? <p className="alert-error">{alert.errorMessage}</p> : null}
+                  {!alert.acknowledgedAt ? (
+                    <form action={acknowledgeAlertFromForm.bind(null, tender.id, alert.channel, alert.type)}>
+                      <button type="submit" className="secondary-button">
+                        Acknowledge
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
 
       <div className="tender-card-grid">
         <section className="tender-section" aria-labelledby="economics-heading">

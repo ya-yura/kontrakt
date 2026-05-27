@@ -27,6 +27,8 @@ type WatchlistFormDraft = {
   onlyForMsp: boolean;
   notifyOnNew: boolean;
   notifyOnChanges: boolean;
+  notifyEmail: boolean;
+  notifyTelegram: boolean;
 };
 
 type TextareaField =
@@ -42,7 +44,9 @@ type CheckboxField =
   | "onlyWithSecurity"
   | "onlyForMsp"
   | "notifyOnNew"
-  | "notifyOnChanges";
+  | "notifyOnChanges"
+  | "notifyEmail"
+  | "notifyTelegram";
 
 const EMPTY_FORM: WatchlistFormDraft = {
   name: "",
@@ -60,7 +64,9 @@ const EMPTY_FORM: WatchlistFormDraft = {
   onlyWithSecurity: false,
   onlyForMsp: false,
   notifyOnNew: true,
-  notifyOnChanges: false
+  notifyOnChanges: false,
+  notifyEmail: true,
+  notifyTelegram: false
 };
 
 const TEXTAREA_FIELDS: Array<{ name: TextareaField; label: string }> = [
@@ -77,7 +83,9 @@ const CHECKBOX_FIELDS: Array<{ name: CheckboxField; label: string }> = [
   { name: "onlyWithSecurity", label: "Only with security" },
   { name: "onlyForMsp", label: "Only for MSP" },
   { name: "notifyOnNew", label: "Notify on new" },
-  { name: "notifyOnChanges", label: "Notify on changes" }
+  { name: "notifyOnChanges", label: "Notify on changes" },
+  { name: "notifyEmail", label: "Email alerts" },
+  { name: "notifyTelegram", label: "Telegram alerts" }
 ];
 
 function joinList(items: string[]) {
@@ -105,7 +113,9 @@ function formFromFilter(filter: SavedFilterView): WatchlistFormDraft {
     onlyWithSecurity: filter.query.onlyWithSecurity,
     onlyForMsp: filter.query.onlyForMsp,
     notifyOnNew: filter.query.notifyOnNew,
-    notifyOnChanges: filter.query.notifyOnChanges
+    notifyOnChanges: filter.query.notifyOnChanges,
+    notifyEmail: filter.query.notifyEmail,
+    notifyTelegram: filter.query.notifyTelegram
   };
 }
 
@@ -182,7 +192,9 @@ function buildFilterSummary(filter: SavedFilterView) {
     query.onlyWithSecurity ? "Security required" : null,
     query.onlyForMsp ? "MSP only" : null,
     query.notifyOnNew ? "Notify: new tenders" : null,
-    query.notifyOnChanges ? "Notify: changes" : null
+    query.notifyOnChanges ? "Notify: changes" : null,
+    query.notifyEmail ? "Channel: email" : null,
+    query.notifyTelegram ? "Channel: Telegram" : null
   ].filter((item): item is string => Boolean(item));
 
   return summary.length ? summary : ["No criteria"];

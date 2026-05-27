@@ -1,8 +1,20 @@
 "use server";
 
-import { TenderDecision, type Prisma, type PrismaClient } from "@prisma/client";
+import {
+  AlertChannel,
+  AlertDeliveryType,
+  TenderDecision,
+  type Prisma,
+  type PrismaClient
+} from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/src/auth/dev-auth";
+import {
+  acknowledgeAlertForUser,
+  type AcknowledgeAlertData,
+  type AcknowledgeAlertStore,
+  type AlertOwnerRecord
+} from "@/src/alerts/acknowledge-alert";
 import {
   boardActionFailure,
   updateTenderChecklistForUser,
@@ -259,6 +271,37 @@ function createPrismaTenderDecisionStore(prisma: PrismaClient): SetTenderDecisio
   };
 }
 
+function createPrismaAcknowledgeAlertStore(prisma: PrismaClient): AcknowledgeAlertStore {
+  return {
+    async findOwnedTender(tenderId: string, userId: string): Promise<AlertOwnerRecord | null> {
+      return prisma.tender.findFirst({
+        where: {
+          id: tenderId,
+          ownerId: userId
+        },
+        select: {
+          id: true,
+          ownerId: true
+        }
+      });
+    },
+    async acknowledgeAlerts(input): Promise<{ count: number }> {
+      return prisma.alertDelivery.updateMany({
+        where: {
+          userId: input.userId,
+          tenderId: input.tenderId,
+          channel: input.channel,
+          type: input.type,
+          acknowledgedAt: null
+        },
+        data: {
+          acknowledgedAt: input.acknowledgedAt
+        }
+      });
+    }
+  };
+}
+
 export async function updateTenderChecklist(
   tenderId: string,
   checklistState: ChecklistState
@@ -383,4 +426,44 @@ export async function setTenderDecision(
   } catch {
     return scoringActionFailure("UNKNOWN_ERROR", "Не удалось сохранить решение.");
   }
+}
+
+export async function acknowledgeAlert(
+  tenderId: string,
+  channel: AlertChannel,
+  type: AlertDeliveryType
+): Promise<ActionResult<AcknowledgeAlertData>> {
+  try {
+    const user = await auth();
+
+    if (!user?.id) {
+      return boardActionFailure("UNAUTHORIZED", "Нужно войти в систему.");
+    }
+
+    const result = await acknowledgeAlertForUser(
+      createPrismaAcknowledgeAlertStore(getPrismaClient()),
+      user.id,
+      {
+        tenderId,
+        channel,
+        type
+      }
+    );
+
+    if (result.ok) {
+      revalidatePath(`/tenders/${result.data.tenderId}`);
+    }
+
+    return result;
+  } catch {
+    return boardActionFailure("UNKNOWN_ERROR", "Не удалось подтвердить alert.");
+  }
+}
+
+export async function acknowledgeAlertFromForm(
+  tenderId: string,
+  channel: AlertChannel,
+  type: AlertDeliveryType
+): Promise<void> {
+  await acknowledgeAlert(tenderId, channel, type);
 }

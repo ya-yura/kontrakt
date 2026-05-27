@@ -6,6 +6,7 @@
 
 - `week-01-2026-05-25` - Sprint 01: product skeleton and read-only loop.
 - `week-02-2026-06-01` - Sprint 02: real source integration and normalized tender card.
+- `week-03-2026-06-08` - Sprint 03: operational loop, scoring, kanban, alerts.
 
 ## Правило экономии токенов
 

@@ -83,6 +83,14 @@ function normalizeBoolean(value: unknown) {
   return value;
 }
 
+function normalizeOptionalBoolean(value: unknown) {
+  if (value == null || value === "") {
+    return undefined;
+  }
+
+  return normalizeBoolean(value);
+}
+
 const textListSchema = z.preprocess(
   normalizeListValue,
   z
@@ -118,6 +126,18 @@ const daysAheadSchema = z.preprocess(
 );
 
 const booleanFlagSchema = z.preprocess(normalizeBoolean, z.boolean().default(false));
+const emailNotificationFlagSchema = z.preprocess(normalizeOptionalBoolean, z.boolean().default(true));
+
+const alertPreferencesSchema = z.preprocess(
+  (value) => (value == null || value === "" ? {} : value),
+  z
+    .object({
+      notifyEmail: z.preprocess(normalizeOptionalBoolean, z.boolean().optional()),
+      notifyTelegram: z.preprocess(normalizeOptionalBoolean, z.boolean().optional()),
+      telegramChatId: z.string().trim().max(120, "Не длиннее 120 символов").optional()
+    })
+    .default({})
+);
 
 export const savedFilterIdSchema = z.string().trim().min(1, "Не указан фильтр");
 
@@ -146,7 +166,10 @@ const savedFilterQueryShape = {
   onlyWithSecurity: booleanFlagSchema,
   onlyForMsp: booleanFlagSchema,
   notifyOnNew: booleanFlagSchema,
-  notifyOnChanges: booleanFlagSchema
+  notifyOnChanges: booleanFlagSchema,
+  notifyEmail: emailNotificationFlagSchema,
+  notifyTelegram: booleanFlagSchema,
+  alertPreferences: alertPreferencesSchema
 };
 
 function validatePriceRange(

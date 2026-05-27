@@ -73,14 +73,16 @@ enum AIAnalysisStatus {
 enum AlertChannel {
   EMAIL
   TELEGRAM
-  IN_APP
 }
 
-enum AlertDeliveryStatus {
-  PENDING
-  SENT
-  FAILED
-  SKIPPED
+enum AlertDeliveryType {
+  NEW_MATCH
+  DEADLINE_T48
+  DEADLINE_T24
+  DEADLINE_T2
+  NEW_CHANGE
+  NEW_CLARIFICATION
+  STAGE_SLA_BREACH
 }
 
 model User {
@@ -303,24 +305,24 @@ model AIAnalysis {
 }
 
 model AlertDelivery {
-  id           String              @id @default(cuid())
-  userId       String
-  tenderId     String?
-  channel      AlertChannel
-  status       AlertDeliveryStatus @default(PENDING)
-  dedupeKey    String
-  subject      String?
-  payload      Json?
-  scheduledFor DateTime?
-  sentAt       DateTime?
-  error        String?             @db.Text
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tender       Tender?             @relation(fields: [tenderId], references: [id], onDelete: SetNull)
+  id             String            @id @default(cuid())
+  userId         String
+  tenderId       String
+  channel        AlertChannel
+  type           AlertDeliveryType
+  idempotencyKey String            @unique
+  payload        Json
+  sentAt         DateTime?
+  acknowledgedAt DateTime?
+  errorMessage   String?           @db.Text
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tender         Tender            @relation(fields: [tenderId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, channel, dedupeKey])
   @@index([userId])
   @@index([tenderId])
-  @@index([status])
+  @@index([userId, tenderId])
+  @@index([type])
+  @@index([sentAt])
 }

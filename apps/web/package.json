@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/health.test.ts tests/saved-filters.test.ts tests/eis-223-adapter.test.ts tests/watchlist-execution.test.ts tests/board-move-action.test.ts tests/board-query.test.ts tests/tender-checklist.test.ts tests/scoring-bid-no-bid.test.ts",
+    "test": "tsx --test tests/health.test.ts tests/saved-filters.test.ts tests/eis-223-adapter.test.ts tests/watchlist-execution.test.ts tests/alert-engine.test.ts tests/board-move-action.test.ts tests/board-query.test.ts tests/tender-checklist.test.ts tests/scoring-bid-no-bid.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed"
