@@ -128,9 +128,12 @@ function toJson(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
 
-async function getInboxStageId(tx: Prisma.TransactionClient) {
+async function getInboxStageId(tx: Prisma.TransactionClient, userId: string) {
   const inbox = await tx.kanbanStage.findFirst({
-    where: { code: "INBOX" },
+    where: {
+      ownerId: userId,
+      code: "INBOX"
+    },
     select: { id: true }
   });
 
@@ -139,12 +142,15 @@ async function getInboxStageId(tx: Prisma.TransactionClient) {
   }
 
   const fallback = await tx.kanbanStage.findFirst({
+    where: {
+      ownerId: userId
+    },
     orderBy: [{ position: "asc" }, { name: "asc" }],
     select: { id: true }
   });
 
   if (!fallback) {
-    throw new Error("At least one Kanban stage is required before importing tenders.");
+    throw new Error("At least one owned Kanban stage is required before importing tenders.");
   }
 
   return fallback.id;
@@ -240,7 +246,7 @@ async function upsertTenderFromNormalizedDTO(
       });
     }
   } else {
-    const kanbanStageId = await getInboxStageId(tx);
+    const kanbanStageId = await getInboxStageId(tx, userId);
     const createdTender = await tx.tender.create({
       data: {
         ...data,

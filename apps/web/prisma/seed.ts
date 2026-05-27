@@ -1,6 +1,7 @@
 import {
   DocumentStatus,
   DocumentType,
+  Prisma,
   PrismaClient,
   TenderDecision,
   TenderSourceStage,
@@ -13,6 +14,7 @@ import {
   createDocumentDedupeKey,
   createTenderSourceDedupeKey
 } from "../src/watchlists/source-identity";
+import { DEFAULT_STAGE_CHECKLIST_TEMPLATES } from "../src/board/checklist";
 
 const databaseUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 
@@ -27,11 +29,39 @@ const prisma = new PrismaClient({
 const DEFAULT_DEV_USER_EMAIL = "dev.supplier@example.local";
 const DEFAULT_DEV_USER_NAME = "Dev Supplier";
 
+const DEFAULT_COMPANY_PROFILE = {
+  targetKeywords: [
+    "стоматолог",
+    "медицин",
+    "диагност",
+    "сервис",
+    "расходн",
+    "оборудован"
+  ],
+  supportedRegions: ["Москва", "Санкт-Петербург", "Московская область", "Ленинградская область"],
+  availableLicenses: ["медицинские изделия", "сервис медицинского оборудования"],
+  availableCertificates: ["регистрационные удостоверения", "сертификаты сервисных инженеров"],
+  mandatoryExperienceAvailable: true,
+  referencesAvailable: true
+};
+
+const DEFAULT_SCORING_POLICY = {
+  minPreparationDays: 3,
+  maxBidSecurityAmount: 300000,
+  maxContractSecurityAmount: 1500000,
+  maxTotalSecurityAmount: 1700000,
+  maxSecurityPercent: 12,
+  targetPriceMin: 500000,
+  targetPriceMax: 20000000,
+  unacceptablePaymentTerms: ["оплата после реализации", "отсрочка 90", "бартер"]
+};
+
 const defaultStages = [
   {
     code: "INBOX",
     name: "Inbox",
     description: "New tenders waiting for qualification",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.INBOX,
     position: 100,
     isTerminal: false
   },
@@ -39,6 +69,7 @@ const defaultStages = [
     code: "QUALIFY",
     name: "Qualify",
     description: "Initial fit and risk review",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.QUALIFY,
     position: 200,
     isTerminal: false
   },
@@ -46,6 +77,7 @@ const defaultStages = [
     code: "GO",
     name: "Go",
     description: "Approved to pursue",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.GO,
     position: 300,
     isTerminal: false
   },
@@ -53,6 +85,7 @@ const defaultStages = [
     code: "PREPARE",
     name: "Prepare",
     description: "Submission package preparation",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.PREPARE,
     position: 400,
     isTerminal: false
   },
@@ -60,6 +93,7 @@ const defaultStages = [
     code: "SUBMITTED_EXTERNALLY",
     name: "Submitted externally",
     description: "Submission completed outside the workspace",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.SUBMITTED_EXTERNALLY,
     position: 500,
     isTerminal: false
   },
@@ -67,6 +101,7 @@ const defaultStages = [
     code: "WON",
     name: "Won",
     description: "Tender won",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.WON,
     position: 600,
     isTerminal: true
   },
@@ -74,6 +109,7 @@ const defaultStages = [
     code: "LOST",
     name: "Lost",
     description: "Tender lost",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.LOST,
     position: 700,
     isTerminal: true
   },
@@ -81,39 +117,71 @@ const defaultStages = [
     code: "ARCHIVED",
     name: "Archived",
     description: "No active work",
+    checklistTemplate: DEFAULT_STAGE_CHECKLIST_TEMPLATES.ARCHIVED,
     position: 800,
     isTerminal: true
   }
 ] as const;
 
+function toPrismaJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
 async function main() {
+  const email = process.env.DEV_AUTH_USER_EMAIL?.trim() || DEFAULT_DEV_USER_EMAIL;
+  const name = process.env.DEV_AUTH_USER_NAME?.trim() || DEFAULT_DEV_USER_NAME;
+  const currentUser = await prisma.user.upsert({
+    where: { email },
+    update: { name, role: UserRole.ADMIN },
+    create: {
+      email,
+      name,
+      role: UserRole.ADMIN,
+      companyProfile: toPrismaJson(DEFAULT_COMPANY_PROFILE),
+      scoringPolicy: toPrismaJson(DEFAULT_SCORING_POLICY)
+    }
+  });
+
+  if (!currentUser.companyProfile || !currentUser.scoringPolicy) {
+    await prisma.user.update({
+      where: {
+        id: currentUser.id
+      },
+      data: {
+        companyProfile: currentUser.companyProfile ?? toPrismaJson(DEFAULT_COMPANY_PROFILE),
+        scoringPolicy: currentUser.scoringPolicy ?? toPrismaJson(DEFAULT_SCORING_POLICY)
+      }
+    });
+  }
+
   for (const stage of defaultStages) {
     await prisma.kanbanStage.upsert({
-      where: { code: stage.code },
+      where: {
+        ownerId_code: {
+          ownerId: currentUser.id,
+          code: stage.code
+        }
+      },
       update: {
         name: stage.name,
         description: stage.description,
+        checklistTemplate: toPrismaJson(stage.checklistTemplate),
         position: stage.position,
         isDefault: true,
         isTerminal: stage.isTerminal
       },
       create: {
         ...stage,
+        checklistTemplate: toPrismaJson(stage.checklistTemplate),
+        ownerId: currentUser.id,
         isDefault: true
       }
     });
   }
 
-  const email = process.env.DEV_AUTH_USER_EMAIL?.trim() || DEFAULT_DEV_USER_EMAIL;
-  const name = process.env.DEV_AUTH_USER_NAME?.trim() || DEFAULT_DEV_USER_NAME;
-  const currentUser = await prisma.user.upsert({
-    where: { email },
-    update: { name, role: UserRole.ADMIN },
-    create: { email, name, role: UserRole.ADMIN }
-  });
-
   const stageRecords = await prisma.kanbanStage.findMany({
     where: {
+      ownerId: currentUser.id,
       code: {
         in: defaultStages.map((stage) => stage.code)
       }

@@ -123,6 +123,7 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
       providerMode: true,
       sourceStage: true,
       decision: true,
+      scoreTotal: true,
       kanbanStage: {
         select: {
           code: true,
@@ -146,6 +147,7 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
         </div>
         <nav className="topbar-nav" aria-label="Workspace navigation">
           <Link href="/">Overview</Link>
+          <Link href="/board">Board</Link>
           <Link href="/watchlists">Watchlists</Link>
         </nav>
       </header>
@@ -242,7 +244,9 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
                     </span>
                   </td>
                   <td>
-                    <span className="score-placeholder">—</span>
+                    <span className="score-placeholder">
+                      {tender.scoreTotal == null ? "—" : tender.scoreTotal}
+                    </span>
                   </td>
                 </tr>
               ))}

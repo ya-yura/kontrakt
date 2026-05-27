@@ -84,21 +84,24 @@ enum AlertDeliveryStatus {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  name          String?
-  email         String?         @unique
-  emailVerified DateTime?
-  image         String?
-  role          UserRole        @default(MANAGER)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  savedFilters  SavedFilter[]
-  ownedTenders  Tender[]        @relation("TenderOwner")
-  documents     Document[]      @relation("DocumentUploader")
-  aiAnalyses    AIAnalysis[]    @relation("AIAnalysisRequester")
-  alerts        AlertDelivery[]
+  id                String          @id @default(cuid())
+  name              String?
+  email             String?         @unique
+  emailVerified     DateTime?
+  image             String?
+  role              UserRole        @default(MANAGER)
+  companyProfile    Json?
+  scoringPolicy     Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  accounts          Account[]
+  sessions          Session[]
+  savedFilters      SavedFilter[]
+  ownedKanbanStages KanbanStage[]   @relation("KanbanStageOwner")
+  ownedTenders      Tender[]        @relation("TenderOwner")
+  documents         Document[]      @relation("DocumentUploader")
+  aiAnalyses        AIAnalysis[]    @relation("AIAnalysisRequester")
+  alerts            AlertDelivery[]
 }
 
 model Account {
@@ -169,18 +172,22 @@ model SavedFilter {
 }
 
 model KanbanStage {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  description String?
-  position    Int
-  isDefault   Boolean  @default(false)
-  isTerminal  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tenders     Tender[]
+  id                String   @id @default(cuid())
+  ownerId           String
+  code              String
+  name              String
+  description       String?
+  checklistTemplate Json?
+  position          Int
+  isDefault         Boolean  @default(false)
+  isTerminal        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  owner             User     @relation("KanbanStageOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  tenders           Tender[]
 
-  @@index([position])
+  @@unique([ownerId, code])
+  @@unique([ownerId, position])
 }
 
 model Tender {
@@ -218,6 +225,18 @@ model Tender {
   sourceStage               TenderSourceStage  @default(UNKNOWN)
   priority                  TenderPriority     @default(NORMAL)
   decision                  TenderDecision     @default(UNDECIDED)
+  decisionReason            String?            @db.Text
+  scoreTotal                Int?
+  scoreFit                  Int?
+  scoreEconomics            Int?
+  scoreExecutionRisk        Int?
+  scoreComplianceRisk       Int?
+  scoreUrgency              Int?
+  scoreConfidence           Int?
+  scoreBreakdown            Json?
+  lastScoredAt              DateTime?
+  checklistState            Json?
+  ownerComment              String?            @db.Text
   kanbanStageId             String
   ownerId                   String?
   createdAt                 DateTime           @default(now())
@@ -233,6 +252,7 @@ model Tender {
   @@index([sourceStage])
   @@index([lastSeenAt])
   @@index([decision])
+  @@index([lastScoredAt])
   @@index([submissionDeadline])
   @@index([ownerId, externalId, lotNumber])
 }
@@ -256,9 +276,9 @@ model Document {
   tender             Tender         @relation(fields: [tenderId], references: [id], onDelete: Cascade)
   uploadedBy         User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
 
+  @@unique([tenderId, dedupeKey])
   @@index([tenderId])
   @@index([uploadedById])
-  @@unique([tenderId, dedupeKey])
 }
 
 model AIAnalysis {

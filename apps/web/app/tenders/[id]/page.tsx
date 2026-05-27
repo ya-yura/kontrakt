@@ -1,7 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TenderScoringClient, type TenderScoringView } from "./tender-scoring-client";
+import { TenderWorkspaceClient } from "./tender-workspace-client";
 import { requireCurrentUser } from "@/src/auth/dev-auth";
+import {
+  buildChecklistStateForTemplate,
+  parseChecklistState,
+  parseChecklistTemplate
+} from "@/src/board/checklist";
 import { getPrismaClient } from "@/src/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +118,34 @@ function providerModeLabel(value: string) {
   return "fixture";
 }
 
+function buildInitialScoringView(tender: {
+  decision: string;
+  decisionReason: string | null;
+  scoreTotal: number | null;
+  scoreFit: number | null;
+  scoreEconomics: number | null;
+  scoreExecutionRisk: number | null;
+  scoreComplianceRisk: number | null;
+  scoreUrgency: number | null;
+  scoreConfidence: number | null;
+  lastScoredAt: Date | null;
+}): TenderScoringView {
+  return {
+    decision: tender.decision as TenderScoringView["decision"],
+    decisionReason: tender.decisionReason ?? "",
+    scoreTotal: tender.scoreTotal,
+    scoreConfidence: tender.scoreConfidence,
+    lastScoredAt: tender.lastScoredAt?.toISOString() ?? null,
+    breakdown: [
+      { key: "fit", label: "Fit", score: tender.scoreFit, max: 30 },
+      { key: "economics", label: "Economics", score: tender.scoreEconomics, max: 20 },
+      { key: "execution", label: "Execution", score: tender.scoreExecutionRisk, max: 20 },
+      { key: "compliance", label: "Compliance", score: tender.scoreComplianceRisk, max: 20 },
+      { key: "urgency", label: "Urgency", score: tender.scoreUrgency, max: 10 }
+    ]
+  };
+}
+
 function toStringList(value: Prisma.JsonValue | null, fallback: string) {
   if (!Array.isArray(value)) {
     return [fallback];
@@ -187,11 +222,23 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
       providerMode: true,
       sourceStage: true,
       decision: true,
+      decisionReason: true,
+      scoreTotal: true,
+      scoreFit: true,
+      scoreEconomics: true,
+      scoreExecutionRisk: true,
+      scoreComplianceRisk: true,
+      scoreUrgency: true,
+      scoreConfidence: true,
+      lastScoredAt: true,
+      checklistState: true,
+      ownerComment: true,
       kanbanStage: {
         select: {
           code: true,
           name: true,
-          description: true
+          description: true,
+          checklistTemplate: true
         }
       },
       documents: {
@@ -226,6 +273,11 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
     "Критерии оценки будут уточняться после подключения live source."
   );
   const changes = toChanges(tender.changesFeed);
+  const checklistTemplate = parseChecklistTemplate(tender.kanbanStage.checklistTemplate);
+  const checklistState = buildChecklistStateForTemplate(
+    checklistTemplate,
+    parseChecklistState(tender.checklistState)
+  );
 
   return (
     <main className="workspace-shell">
@@ -236,6 +288,7 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
         </div>
         <nav className="topbar-nav" aria-label="Workspace navigation">
           <Link href="/">Overview</Link>
+          <Link href="/board">Board</Link>
           <Link href="/watchlists">Watchlists</Link>
           <Link href="/tenders">Tenders</Link>
         </nav>
@@ -280,15 +333,16 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
             <span className="badge badge-decision">
               {decisionLabels[tender.decision] ?? tender.decision}
             </span>
-            <span className="score-placeholder">Score: —</span>
+            <span className="score-placeholder">
+              Score: {tender.scoreTotal == null ? "—" : tender.scoreTotal}
+            </span>
           </div>
         </aside>
       </section>
 
+      <TenderScoringClient tenderId={tender.id} initialScoring={buildInitialScoringView(tender)} />
+
       <section className="quick-actions" aria-label="Unavailable quick actions">
-        <button type="button" className="secondary-button" disabled>
-          Rescore unavailable
-        </button>
         <button type="button" className="secondary-button" disabled>
           Run AI unavailable
         </button>
@@ -330,6 +384,13 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
           <small>Upstream updates are refreshed by runs; this is not a real-time stream.</small>
         </div>
       </section>
+
+      <TenderWorkspaceClient
+        tenderId={tender.id}
+        checklistTemplate={checklistTemplate}
+        initialChecklistState={checklistState}
+        initialOwnerComment={tender.ownerComment ?? ""}
+      />
 
       <div className="tender-card-grid">
         <section className="tender-section" aria-labelledby="economics-heading">

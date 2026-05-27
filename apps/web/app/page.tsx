@@ -6,17 +6,18 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const prisma = getPrismaClient();
-  const [currentUser, stages] = await Promise.all([
-    requireCurrentUser(),
-    prisma.kanbanStage.findMany({
-      orderBy: { position: "asc" },
-      select: {
-        code: true,
-        name: true,
-        isTerminal: true
-      }
-    })
-  ]);
+  const currentUser = await requireCurrentUser();
+  const stages = await prisma.kanbanStage.findMany({
+    where: {
+      ownerId: currentUser.id
+    },
+    orderBy: { position: "asc" },
+    select: {
+      code: true,
+      name: true,
+      isTerminal: true
+    }
+  });
 
   return (
     <main className="workspace-shell">
@@ -32,6 +33,7 @@ export default async function Home() {
       </header>
 
       <nav className="topbar-nav" aria-label="Workspace navigation">
+        <Link href="/board">Board</Link>
         <Link href="/tenders">Tenders</Link>
         <Link href="/watchlists">Watchlists</Link>
       </nav>
