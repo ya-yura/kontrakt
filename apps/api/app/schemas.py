@@ -326,4 +326,4 @@ class ProviderErrorResponse(BaseModel):
 
     error: ProviderErrorCode
     message: str
-    provider: Literal["eis223"] = "eis223"
+    provider: Literal["eis223", "ai"] = "eis223"

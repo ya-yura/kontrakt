@@ -478,7 +478,7 @@ function getTenderSignals(tender: TenderScoringInput, scoredAt: Date): TenderSig
     requiredDocumentTexts.length === 0;
   const hasAIAnalysis = (tender.aiAnalyses ?? []).some(
     (analysis) =>
-      analysis.status === "SUCCEEDED" ||
+      analysis.status === "COMPLETED" ||
       analysis.score != null ||
       Boolean(analysis.summary) ||
       analysis.result != null

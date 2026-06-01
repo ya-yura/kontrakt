@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { acknowledgeAlertFromForm } from "./actions";
+import { acknowledgeAlertFromForm, requestTenderAnalysisFromForm } from "./actions";
 import { TenderScoringClient, type TenderScoringView } from "./tender-scoring-client";
 import { TenderWorkspaceClient } from "./tender-workspace-client";
 import { requireCurrentUser } from "@/src/auth/dev-auth";
@@ -12,6 +12,7 @@ import {
   parseChecklistTemplate
 } from "@/src/board/checklist";
 import { getPrismaClient } from "@/src/lib/prisma";
+import { AIAnalysisPanel } from "@/src/tenders/ai-analysis-panel";
 import { findTenderCardForUser } from "@/src/tenders/tender-card-query";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,14 @@ const documentStatusLabels: Record<string, string> = {
   AVAILABLE: "Available",
   EXTERNAL_ONLY: "External only",
   MISSING: "Missing"
+};
+
+const documentExtractionStatusLabels: Record<string, string> = {
+  PENDING: "Text pending",
+  DOWNLOADED: "Downloaded",
+  TEXT_READY: "Text ready",
+  OCR_REQUIRED: "OCR required",
+  FAILED: "Text failed"
 };
 
 const alertTypeLabels: Record<string, string> = {
@@ -197,6 +206,55 @@ function toChanges(value: Prisma.JsonValue | null): ChangeFeedItem[] {
   });
 }
 
+function getAIRequestDisabledReason(input: {
+  documents: Array<{
+    status: string;
+    extractionStatus: string;
+    fileName: string | null;
+    title: string;
+    textChecksum: string | null;
+  }>;
+  analysisIsBusy: boolean;
+}) {
+  if (input.analysisIsBusy) {
+    return "AI analysis is already pending or running.";
+  }
+
+  const activeDocuments = input.documents.filter((document) => document.status !== "MISSING");
+
+  if (activeDocuments.length === 0) {
+    return "No available documents with extracted text.";
+  }
+
+  const ocrRequired = activeDocuments.filter(
+    (document) => document.extractionStatus === "OCR_REQUIRED"
+  );
+  const failed = activeDocuments.filter((document) => document.extractionStatus === "FAILED");
+  const textNotReady = activeDocuments.filter(
+    (document) =>
+      document.extractionStatus !== "TEXT_READY" ||
+      !Boolean(document.textChecksum?.trim())
+  );
+
+  function names(documents: typeof activeDocuments) {
+    return documents.map((document) => document.fileName ?? document.title).join(", ");
+  }
+
+  if (ocrRequired.length > 0) {
+    return `OCR required before AI analysis: ${names(ocrRequired)}.`;
+  }
+
+  if (failed.length > 0) {
+    return `Text extraction failed before AI analysis: ${names(failed)}.`;
+  }
+
+  if (textNotReady.length > 0) {
+    return `Document text is not ready: ${names(textNotReady)}.`;
+  }
+
+  return null;
+}
+
 export default async function TenderCardPage({ params }: TenderCardPageProps) {
   const [{ id }, currentUser] = await Promise.all([params, requireCurrentUser()]);
   const tender = await findTenderCardForUser(getPrismaClient(), id, currentUser.id);
@@ -223,6 +281,14 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
     checklistTemplate,
     parseChecklistState(tender.checklistState)
   );
+  const latestAnalysis = tender.aiAnalyses[0] ?? null;
+  const analysisIsBusy =
+    latestAnalysis?.status === "PENDING" || latestAnalysis?.status === "RUNNING";
+  const aiRequestDisabledReason = getAIRequestDisabledReason({
+    documents: tender.documents,
+    analysisIsBusy
+  });
+  const requestAnalysisAction = requestTenderAnalysisFromForm.bind(null, tender.id);
 
   return (
     <main className="workspace-shell">
@@ -287,10 +353,17 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
 
       <TenderScoringClient tenderId={tender.id} initialScoring={buildInitialScoringView(tender)} />
 
-      <section className="quick-actions" aria-label="Unavailable quick actions">
-        <button type="button" className="secondary-button" disabled>
-          Run AI unavailable
-        </button>
+      <section className="quick-actions" aria-label="Quick actions">
+        <form action={requestAnalysisAction}>
+          <button
+            type="submit"
+            className="secondary-button"
+            disabled={Boolean(aiRequestDisabledReason)}
+            title={aiRequestDisabledReason ?? "Request source-backed AI analysis."}
+          >
+            {analysisIsBusy ? "AI analysis queued" : "Request AI analysis"}
+          </button>
+        </form>
         <button type="button" className="secondary-button" disabled>
           Move stage unavailable
         </button>
@@ -483,6 +556,7 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
                   <th>type</th>
                   <th>fileName / title</th>
                   <th>status</th>
+                  <th>text</th>
                 </tr>
               </thead>
               <tbody>
@@ -490,8 +564,8 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
                   <tr key={document.id}>
                     <td>{documentTypeLabels[document.type] ?? document.type}</td>
                     <td>
-                      {document.sourceUrl ? (
-                        <a href={document.sourceUrl} target="_blank" rel="noreferrer">
+                      {document.status !== "MISSING" && (document.sourceUrl || document.storageKey) ? (
+                        <a href={`/api/files/${document.id}`} target="_blank" rel="noreferrer">
                           {document.fileName ?? document.title}
                         </a>
                       ) : (
@@ -503,7 +577,14 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
                       <span className="badge badge-document">
                         {documentStatusLabels[document.status] ?? document.status}
                       </span>
-                      {document.storageKey ? <code>{document.storageKey}</code> : null}
+                      {document.storageKey ? <small>served through file proxy</small> : null}
+                    </td>
+                    <td>
+                      <span className="badge badge-document">
+                        {documentExtractionStatusLabels[document.extractionStatus] ??
+                          document.extractionStatus}
+                      </span>
+                      {document.textChecksum ? <code>{document.textChecksum.slice(0, 12)}</code> : null}
                     </td>
                   </tr>
                 ))}
@@ -537,19 +618,13 @@ export default async function TenderCardPage({ params }: TenderCardPageProps) {
           )}
         </div>
 
-        <div className="tender-section">
-          <div className="section-heading">
-            <p className="section-kicker">AI</p>
-            <h2>Анализ</h2>
-          </div>
-          <div className="empty-state compact-empty">
-            <h3>AI-анализ еще не запускался</h3>
-            <p>
-              В Sprint 01 карточка намеренно не показывает сгенерированные выводы, scoring или
-              рекомендации.
-            </p>
-          </div>
-        </div>
+        <AIAnalysisPanel
+          tenderId={tender.id}
+          documents={tender.documents}
+          latestAnalysis={latestAnalysis}
+          requestAction={requestAnalysisAction}
+          formatDate={formatDate}
+        />
       </section>
     </main>
   );

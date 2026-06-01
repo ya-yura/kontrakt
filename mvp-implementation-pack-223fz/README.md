@@ -44,7 +44,8 @@
 11. `sprints/sprint-03-operational-loop.md`
 12. `daily-prompts/week-03-2026-06-08/README.md`
 13. `sprints/sprint-04-ai-release.md`
-14. `06-release-runbook.md`
+14. `daily-prompts/week-04-2026-06-15/README.md`
+15. `06-release-runbook.md`
 
 ## Непереговорные решения
 

@@ -62,12 +62,24 @@ enum DocumentStatus {
   MISSING
 }
 
+enum DocumentExtractionStatus {
+  PENDING
+  DOWNLOADED
+  TEXT_READY
+  OCR_REQUIRED
+  FAILED
+}
+
 enum AIAnalysisStatus {
   PENDING
   RUNNING
-  SUCCEEDED
+  COMPLETED
   FAILED
-  SKIPPED
+}
+
+enum AIAnalysisKind {
+  TENDER_SUMMARY
+  DOCUMENT_SUMMARY
 }
 
 enum AlertChannel {
@@ -260,48 +272,68 @@ model Tender {
 }
 
 model Document {
-  id                 String         @id @default(cuid())
+  id                 String                   @id @default(cuid())
   tenderId           String
   externalDocumentId String?
   dedupeKey          String
-  type               DocumentType   @default(OTHER)
+  type               DocumentType             @default(OTHER)
   title              String
   fileName           String?
-  status             DocumentStatus @default(AVAILABLE)
+  status             DocumentStatus           @default(AVAILABLE)
   sourceUrl          String?
   sourceHash         String?
   storageKey         String?
   checksum           String?
+  extractionStatus   DocumentExtractionStatus @default(PENDING)
+  textContent        String?                  @db.Text
+  textChecksum       String?
+  pageCount          Int?
+  hasTextLayer       Boolean?
+  extractionMetadata Json?
   uploadedById       String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  tender             Tender         @relation(fields: [tenderId], references: [id], onDelete: Cascade)
-  uploadedBy         User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  tender             Tender                   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  uploadedBy         User?                    @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  aiAnalyses         AIAnalysis[]
 
   @@unique([tenderId, dedupeKey])
   @@index([tenderId])
   @@index([uploadedById])
+  @@index([extractionStatus])
 }
 
 model AIAnalysis {
   id            String           @id @default(cuid())
   tenderId      String
+  documentId    String?
   requestedById String?
+  kind          AIAnalysisKind   @default(TENDER_SUMMARY)
+  targetKey     String
+  inputHash     String
+  promptVersion String           @default("summary-v1")
   status        AIAnalysisStatus @default(PENDING)
   provider      String?
   model         String?
   summary       String?          @db.Text
   score         Int?
   result        Json?
+  errorMessage  String?          @db.Text
   error         String?          @db.Text
+  startedAt     DateTime?
+  completedAt   DateTime?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   tender        Tender           @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  document      Document?        @relation(fields: [documentId], references: [id], onDelete: Cascade)
   requestedBy   User?            @relation("AIAnalysisRequester", fields: [requestedById], references: [id], onDelete: SetNull)
 
   @@index([tenderId])
+  @@index([documentId])
   @@index([requestedById])
   @@index([status])
+  @@index([kind, status])
+  @@unique([targetKey, kind, inputHash, promptVersion])
 }
 
 model AlertDelivery {

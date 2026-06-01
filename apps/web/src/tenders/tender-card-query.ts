@@ -31,6 +31,7 @@ export function findTenderCardForUser(prisma: PrismaClient, tenderId: string, us
       requiredDocuments: true,
       evaluationCriteria: true,
       changesFeed: true,
+      payloadHash: true,
       lastSeenAt: true,
       updatedFromSourceAt: true,
       providerMode: true,
@@ -64,7 +65,31 @@ export function findTenderCardForUser(prisma: PrismaClient, tenderId: string, us
           fileName: true,
           status: true,
           sourceUrl: true,
-          storageKey: true
+          storageKey: true,
+          extractionStatus: true,
+          textChecksum: true
+        }
+      },
+      aiAnalyses: {
+        where: {
+          kind: "TENDER_SUMMARY"
+        },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        take: 1,
+        select: {
+          id: true,
+          kind: true,
+          status: true,
+          summary: true,
+          score: true,
+          result: true,
+          errorMessage: true,
+          inputHash: true,
+          promptVersion: true,
+          provider: true,
+          model: true,
+          updatedAt: true,
+          completedAt: true
         }
       },
       alertDeliveries: {

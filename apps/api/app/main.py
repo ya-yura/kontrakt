@@ -4,6 +4,8 @@ from fastapi import FastAPI, Path
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.ai.router import router as ai_router
+from app.documents.router import router as documents_router
 from app.providers.eis223.factory import build_eis223_provider
 from app.providers.errors import ProviderError
 from app.schemas import (
@@ -32,6 +34,8 @@ app = FastAPI(
     version="0.1.0",
     description="Stateless compute/adaptation service for the 223-FZ MVP.",
 )
+app.include_router(ai_router)
+app.include_router(documents_router)
 
 
 @app.exception_handler(ProviderError)

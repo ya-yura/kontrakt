@@ -16,6 +16,15 @@ import {
   type AlertOwnerRecord
 } from "@/src/alerts/acknowledge-alert";
 import {
+  analysisUnauthorizedFailure,
+  analysisUnknownFailure,
+  createPrismaAnalysisRequestStore,
+  requestDocumentAnalysisForUser,
+  requestTenderAnalysisForUser,
+  type ActionResult as AnalysisActionResult,
+  type RequestAnalysisData
+} from "@/src/analysis/request-analysis";
+import {
   boardActionFailure,
   updateTenderChecklistForUser,
   updateTenderOwnerCommentForUser,
@@ -466,4 +475,60 @@ export async function acknowledgeAlertFromForm(
   type: AlertDeliveryType
 ): Promise<void> {
   await acknowledgeAlert(tenderId, channel, type);
+}
+
+export async function requestTenderAnalysis(
+  tenderId: string
+): Promise<AnalysisActionResult<RequestAnalysisData>> {
+  try {
+    const user = await auth();
+
+    if (!user?.id) {
+      return analysisUnauthorizedFailure();
+    }
+
+    const result = await requestTenderAnalysisForUser(
+      createPrismaAnalysisRequestStore(),
+      user.id,
+      tenderId
+    );
+
+    if (result.ok) {
+      revalidatePath(`/tenders/${result.data.tenderId}`);
+    }
+
+    return result;
+  } catch {
+    return analysisUnknownFailure();
+  }
+}
+
+export async function requestDocumentAnalysis(
+  documentId: string
+): Promise<AnalysisActionResult<RequestAnalysisData>> {
+  try {
+    const user = await auth();
+
+    if (!user?.id) {
+      return analysisUnauthorizedFailure();
+    }
+
+    const result = await requestDocumentAnalysisForUser(
+      createPrismaAnalysisRequestStore(),
+      user.id,
+      documentId
+    );
+
+    if (result.ok) {
+      revalidatePath(`/tenders/${result.data.tenderId}`);
+    }
+
+    return result;
+  } catch {
+    return analysisUnknownFailure();
+  }
+}
+
+export async function requestTenderAnalysisFromForm(tenderId: string): Promise<void> {
+  await requestTenderAnalysis(tenderId);
 }

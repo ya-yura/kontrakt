@@ -9,6 +9,8 @@ const DEFAULT_TIMEOUT_SECONDS = 10;
 const nullableDateStringSchema = z.string().nullable();
 const nullableStringSchema = z.string().nullable();
 const nullableMoneySchema = z.union([z.string(), z.number()]).nullable();
+const nullableNumberSchema = z.number().int().nullable();
+const nullableBooleanSchema = z.boolean().nullable();
 
 const eis223SearchHitSchema = z
   .object({
@@ -44,12 +46,99 @@ const providerErrorResponseSchema = z
   .object({
     error: z.string(),
     message: z.string(),
-    provider: z.literal("eis223").optional()
+    provider: z.enum(["eis223", "ai"]).optional()
   })
   .passthrough();
 
+export const documentTextExtractionResponseSchema = z
+  .object({
+    status: z.enum(["TEXT_READY", "OCR_REQUIRED", "FAILED"]),
+    text: nullableStringSchema,
+    textChecksum: nullableStringSchema,
+    pageCount: nullableNumberSchema,
+    hasTextLayer: nullableBooleanSchema,
+    metadata: z.record(z.string(), z.unknown()),
+    errorMessage: nullableStringSchema
+  })
+  .strict();
+
+const aiSourceSpanSchema = z
+  .object({
+    documentId: z.string().trim().min(1),
+    documentTitle: nullableStringSchema,
+    chunkId: nullableStringSchema,
+    start: z.number().int().min(0),
+    end: z.number().int().positive(),
+    quote: z.string().trim().min(1)
+  })
+  .strict()
+  .refine((span) => span.end > span.start, {
+    message: "source span end must be greater than start"
+  });
+
+const aiSummaryItemSchema = z
+  .object({
+    text: z.string().trim().min(1),
+    sourceSpans: z.array(aiSourceSpanSchema).min(1)
+  })
+  .strict()
+  .refine((item) => item.sourceSpans.some((span) => span.quote === item.text), {
+    message: "summary item text must match one of its source span quotes"
+  });
+
+const aiExtractedFactSchema = z
+  .object({
+    label: z.string().trim().min(1),
+    text: z.string().trim().min(1),
+    value: nullableStringSchema.optional(),
+    sourceSpans: z.array(aiSourceSpanSchema).min(1),
+    confidence: z.number().int().min(0).max(100)
+  })
+  .strict();
+
+const aiDeadlineFactSchema = aiExtractedFactSchema
+  .extend({
+    deadlineType: z.string().trim().min(1)
+  })
+  .strict();
+
+const aiUnknownFieldSchema = z
+  .object({
+    field: z.string().trim().min(1),
+    reason: z.string().trim().min(1)
+  })
+  .strict();
+
+export const aiAnalysisResponseSchema = z
+  .object({
+    provider: z.enum(["mock", "live"]),
+    model: z.string().trim().min(1),
+    promptVersion: z.string().trim().min(1),
+    language: z.literal("ru"),
+    summaryMd: nullableStringSchema,
+    summaryItems: z.array(aiSummaryItemSchema),
+    requirements: z.array(aiExtractedFactSchema),
+    risks: z.array(aiExtractedFactSchema),
+    deadlines: z.array(aiDeadlineFactSchema),
+    requestedDocuments: z.array(aiExtractedFactSchema),
+    evaluationCriteria: z.array(aiExtractedFactSchema),
+    fieldsExtracted: z.record(z.string(), z.boolean()),
+    citations: z.array(aiSourceSpanSchema),
+    confidence: z.number().int().min(0).max(100),
+    unknowns: z.array(aiUnknownFieldSchema),
+    rawResponse: z.unknown().optional()
+  })
+  .strict()
+  .refine((response) => response.summaryMd === summaryMarkdownFromItems(response.summaryItems), {
+    message: "summaryMd must be derived from source-backed summaryItems"
+  });
+
 export type EIS223SearchHit = z.output<typeof eis223SearchHitSchema>;
 export type EIS223SearchResponse = z.output<typeof eis223SearchResponseSchema>;
+export type DocumentTextExtractionResponse = z.output<
+  typeof documentTextExtractionResponseSchema
+>;
+export type AIAnalysisResponse = z.output<typeof aiAnalysisResponseSchema>;
 
 export type EIS223SearchRequest = {
   filterId?: string;
@@ -71,6 +160,58 @@ export type EIS223SearchRequest = {
 export type EIS223NormalizeRequest = {
   lotNumber?: string | null;
   includeRawPayload?: boolean;
+};
+
+export type DocumentTextExtractionRequest = {
+  documentId?: string | null;
+  externalDocumentId?: string | null;
+  fileUrl?: string | null;
+  storageKey?: string | null;
+  signedUrl?: string | null;
+  fileName: string;
+  mimeType: string;
+  maxPages?: number | null;
+};
+
+export type AITextChunkRequest = {
+  chunkId: string;
+  text: string;
+  startOffset?: number;
+};
+
+export type AIAnalysisDocumentRequest = {
+  documentId: string;
+  externalDocumentId?: string | null;
+  title: string;
+  text?: string | null;
+  chunks?: AITextChunkRequest[];
+  textChecksum?: string | null;
+};
+
+export type AIAnalysisRequestBase = {
+  tenderId: string;
+  registryNumber?: string | null;
+  tenderTitle?: string | null;
+  customerName?: string | null;
+  promptVersion: string;
+  language?: "ru";
+  mode?: "mock" | "live";
+  model?: string | null;
+  includeRawResponse?: boolean;
+};
+
+export type AISummarizeDocumentRequest = AIAnalysisRequestBase & {
+  documentId: string;
+  documents: AIAnalysisDocumentRequest[];
+};
+
+export type AISummarizeTenderRequest = AIAnalysisRequestBase & {
+  documents: AIAnalysisDocumentRequest[];
+};
+
+export type AIDiffDocumentRequest = AIAnalysisRequestBase & {
+  baseDocument: AIAnalysisDocumentRequest;
+  changedDocument: AIAnalysisDocumentRequest;
 };
 
 export type FastApiClientErrorCode =
@@ -106,9 +247,29 @@ export type EIS223Client = {
   ): Promise<NormalizedTenderDTO>;
 };
 
+export type DocumentTextExtractionClient = {
+  extractText(request: DocumentTextExtractionRequest): Promise<DocumentTextExtractionResponse>;
+};
+
+export type AIAnalysisClient = {
+  summarizeDocument(request: AISummarizeDocumentRequest): Promise<AIAnalysisResponse>;
+  summarizeTender(request: AISummarizeTenderRequest): Promise<AIAnalysisResponse>;
+  diffDocument(request: AIDiffDocumentRequest): Promise<AIAnalysisResponse>;
+};
+
+export type FastApiClient = EIS223Client & DocumentTextExtractionClient & AIAnalysisClient;
+
 type JsonSchema<T> = {
   parse(input: unknown): T;
 };
+
+function summaryMarkdownFromItems(items: Array<{ text: string }>) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return items.map((item) => `- ${item.text}`).join("\n");
+}
 
 function getBaseUrl() {
   const baseUrl = process.env.FASTAPI_BASE_URL?.trim();
@@ -199,7 +360,7 @@ async function postJson<T>(path: string, body: unknown, schema: JsonSchema<T>): 
     } catch (error) {
       throw new FastApiClientError(
         "FASTAPI_INVALID_RESPONSE",
-        "FastAPI response did not match the expected EIS 223-FZ schema.",
+        "FastAPI response did not match the expected schema.",
         {
           status: response.status,
           cause: error
@@ -225,7 +386,7 @@ async function postJson<T>(path: string, body: unknown, schema: JsonSchema<T>): 
   }
 }
 
-export function createEIS223Client(): EIS223Client {
+export function createEIS223Client(): FastApiClient {
   return {
     search(request) {
       return postJson("/v1/eis223/search", request, eis223SearchResponseSchema);
@@ -237,6 +398,26 @@ export function createEIS223Client(): EIS223Client {
         request,
         normalizedTenderDTOSchema
       );
+    },
+
+    extractText(request) {
+      return postJson(
+        "/v1/documents/extract-text",
+        request,
+        documentTextExtractionResponseSchema
+      );
+    },
+
+    summarizeDocument(request) {
+      return postJson("/v1/ai/summarize-document", request, aiAnalysisResponseSchema);
+    },
+
+    summarizeTender(request) {
+      return postJson("/v1/ai/summarize-tender", request, aiAnalysisResponseSchema);
+    },
+
+    diffDocument(request) {
+      return postJson("/v1/ai/diff-document", request, aiAnalysisResponseSchema);
     }
   };
 }

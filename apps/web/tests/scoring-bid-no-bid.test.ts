@@ -73,7 +73,7 @@ function createHighFitTender(
       },
       { type: "TECHNICAL_SPECIFICATION", title: "Техническое задание", status: "AVAILABLE" }
     ],
-    aiAnalyses: [{ status: "SUCCEEDED", score: 84, summary: "High fit" }],
+    aiAnalyses: [{ status: "COMPLETED", score: 84, summary: "High fit" }],
     owner: {
       companyProfile: baseCompanyProfile,
       scoringPolicy: baseScoringPolicy

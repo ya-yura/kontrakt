@@ -1,0 +1,1 @@
+"""Extractive AI analysis endpoints."""

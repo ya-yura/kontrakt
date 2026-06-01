@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 ProviderMode = Literal["fixture", "live"]
+AIProviderMode = Literal["mock", "live"]
 
 
 class Settings(BaseModel):
@@ -15,6 +16,11 @@ class Settings(BaseModel):
     eis_provider_base_url: str | None = None
     eis_provider_api_key: str | None = None
     eis_provider_timeout_seconds: float = Field(default=10.0, gt=0)
+    ai_provider_mode: AIProviderMode = "mock"
+    ai_provider_base_url: str | None = None
+    ai_provider_api_key: str | None = None
+    ai_provider_model: str | None = None
+    ai_provider_timeout_seconds: float = Field(default=20.0, gt=0)
 
     @classmethod
     def from_env(cls) -> Self:
@@ -22,20 +28,34 @@ class Settings(BaseModel):
             "eis_provider_mode": os.getenv("EIS_PROVIDER_MODE", "fixture"),
             "eis_provider_base_url": os.getenv("EIS_PROVIDER_BASE_URL"),
             "eis_provider_api_key": os.getenv("EIS_PROVIDER_API_KEY"),
+            "ai_provider_mode": os.getenv("AI_PROVIDER_MODE", "mock"),
+            "ai_provider_base_url": os.getenv("AI_PROVIDER_BASE_URL"),
+            "ai_provider_api_key": os.getenv("AI_PROVIDER_API_KEY"),
+            "ai_provider_model": os.getenv("AI_PROVIDER_MODEL"),
         }
         timeout_seconds = os.getenv("EIS_PROVIDER_TIMEOUT_SECONDS")
         if timeout_seconds is not None:
             values["eis_provider_timeout_seconds"] = timeout_seconds
+        ai_timeout_seconds = os.getenv("AI_PROVIDER_TIMEOUT_SECONDS")
+        if ai_timeout_seconds is not None:
+            values["ai_provider_timeout_seconds"] = ai_timeout_seconds
         return cls.model_validate(values)
 
-    @field_validator("eis_provider_mode", mode="before")
+    @field_validator("eis_provider_mode", "ai_provider_mode", mode="before")
     @classmethod
     def normalize_provider_mode(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip().lower()
         return value
 
-    @field_validator("eis_provider_base_url", "eis_provider_api_key", mode="before")
+    @field_validator(
+        "eis_provider_base_url",
+        "eis_provider_api_key",
+        "ai_provider_base_url",
+        "ai_provider_api_key",
+        "ai_provider_model",
+        mode="before",
+    )
     @classmethod
     def empty_string_to_none(cls, value: object) -> object:
         if isinstance(value, str) and value.strip() == "":
@@ -53,6 +73,16 @@ class Settings(BaseModel):
         if self.eis_provider_mode == "fixture":
             return True
         return self.is_live_provider_configured
+
+    @property
+    def is_live_ai_provider_configured(self) -> bool:
+        return bool(self.ai_provider_base_url and self.ai_provider_api_key)
+
+    @property
+    def is_ai_provider_configured(self) -> bool:
+        if self.ai_provider_mode == "mock":
+            return True
+        return self.is_live_ai_provider_configured
 
 
 @lru_cache(maxsize=1)
