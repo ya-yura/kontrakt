@@ -1,3 +1,5 @@
+from urllib.error import HTTPError
+
 from fastapi.testclient import TestClient
 import pytest
 
@@ -93,6 +95,35 @@ def test_search_endpoint_live_missing_config_returns_typed_error(
     assert response.json() == {
         "error": "provider_not_configured",
         "message": "Live EIS 223-FZ provider requires EIS_PROVIDER_BASE_URL and EIS_PROVIDER_API_KEY.",
+        "provider": "eis223",
+    }
+    get_settings.cache_clear()
+
+
+def test_search_endpoint_live_rate_limit_returns_typed_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_urlopen(*_args: object, **_kwargs: object) -> object:
+        raise HTTPError(
+            url="https://example.test/eis/tenders/search",
+            code=429,
+            msg="Too Many Requests",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setenv("EIS_PROVIDER_MODE", "live")
+    monkeypatch.setenv("EIS_PROVIDER_BASE_URL", "https://example.test/eis")
+    monkeypatch.setenv("EIS_PROVIDER_API_KEY", "test-token")
+    monkeypatch.setattr("app.providers.eis223.live.urlopen", fake_urlopen)
+    client = _client()
+
+    response = client.post("/v1/eis223/search", json={"limit": 1})
+
+    assert response.status_code == 429
+    assert response.json() == {
+        "error": "upstream_rate_limited",
+        "message": "EIS 223-FZ provider rate limit was reached.",
         "provider": "eis223",
     }
     get_settings.cache_clear()
